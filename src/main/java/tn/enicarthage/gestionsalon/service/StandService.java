@@ -1,6 +1,7 @@
 package tn.enicarthage.gestionsalon.service;
 
 import tn.enicarthage.gestionsalon.dao.CategorieDAO;
+import tn.enicarthage.gestionsalon.dao.EvenementDAO;
 import tn.enicarthage.gestionsalon.dao.StandDAO;
 import tn.enicarthage.gestionsalon.exception.ResourceNotFoundException;
 import tn.enicarthage.gestionsalon.model.Stand;
@@ -13,10 +14,12 @@ public class StandService {
 
     private final StandDAO standDAO;
     private final CategorieDAO categorieDAO;
+    private final EvenementDAO evenementDAO;
 
     public StandService() {
         this.standDAO = new StandDAO();
         this.categorieDAO = new CategorieDAO();
+        this.evenementDAO = new EvenementDAO();
     }
 
     public void createStand(Stand stand) {
@@ -64,9 +67,21 @@ public class StandService {
         if (stand.getPrix() == null || stand.getPrix().compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("Le prix doit etre positif.");
         }
+        if (evenementDAO.findById(stand.getEvenementId()) == null) {
+            throw new ResourceNotFoundException(
+                    "Evenement introuvable : " + stand.getEvenementId());
+        }
         if (categorieDAO.findById(stand.getCategorieId()) == null) {
             throw new ResourceNotFoundException(
                     "Categorie introuvable : " + stand.getCategorieId());
+        }
+        // Un numero de stand est unique dans un evenement
+        for (Stand existant : standDAO.findByEvenementId(stand.getEvenementId())) {
+            if (existant.getNumero().equalsIgnoreCase(stand.getNumero())
+                    && existant.getId() != stand.getId()) {
+                throw new IllegalArgumentException(
+                        "Ce numero de stand existe deja pour cet evenement.");
+            }
         }
     }
 }
