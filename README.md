@@ -16,7 +16,7 @@ Projet de cours réalisé à l'ENICarthage (Projet Full Stack Web).
 8. [Package `dao`](#8-package-dao)
 9. [Package `service` et règles métier](#9-package-service-et-règles-métier)
 10. [Fonctionnalités](#10-fonctionnalités)
-11. [Comment tester le code](#11-comment-tester-le-code)
+11. [Tests réalisés](#11-tests-réalisés)
 12. [Points d'attention et limites connues](#12-points-dattention-et-limites-connues)
 13. [Travail restant](#13-travail-restant)
 14. [Travailler à deux avec Git](#14-travailler-à-deux-avec-git)
@@ -52,7 +52,7 @@ Projet de cours réalisé à l'ENICarthage (Projet Full Stack Web).
 | Serveur HTTP et routes (test avec Postman) | **À faire** |
 | Frontend React | **À faire** |
 
-Tout ce qui est « Fait » a été vérifié avec un programme de test dans `Main.java` (voir [section 11](#11-comment-tester-le-code)).
+Les tests réalisés, ceux qui restent à rejouer et la façon de tester sont détaillés dans la [section 11](#11-tests-réalisés).
 
 ## 3. Installation et lancement
 
@@ -310,19 +310,24 @@ Légende : **Service** = la logique est écrite et testée ; **À faire** = rien
 | Gérer les sessions | Administrateur | Service | `SessionService` |
 | Consulter le programme | Tous | Service | `SessionService.getSessionsByEvenement` |
 | S'inscrire à une session | Visiteur | Service | `SessionService.inscrireVisiteur` |
-| Réserver / obtenir un billet | Visiteur | Service | `BilletService.reserverBillet` |
+| Réserver / obtenir un billet | Visiteur | Service (test à rejouer) | `BilletService.reserverBillet` |
 | Générer le PDF de confirmation du billet | Visiteur | À faire | — |
-| Scanner et valider un QR code | Agent d'accueil | Service | `BilletService.scannerBillet` |
+| Scanner et valider un QR code | Agent d'accueil | Service (test à rejouer) | `BilletService.scannerBillet` |
 | Consulter le tableau de bord | Administrateur | À faire | — |
 | Gérer les types de billets | Administrateur | À faire, **à clarifier** | — |
 
 > **À clarifier avec le professeur** : le diagramme de cas d'utilisation contient « Gérer les types de billets », mais le diagramme de classes n'a pas de classe `TypeBillet`, et la base n'a pas de table correspondante.
 
-## 11. Comment tester le code
+## 11. Tests réalisés
 
-Il n'y a pas encore de serveur HTTP : on teste les services en écrivant un scénario dans `main/Main.java`, puis en l'exécutant.
+Il n'y a pas encore de serveur HTTP. Les tests sont de deux types :
 
-Le contenu actuel de `Main` est le **dernier scénario de test** (inscription et connexion). On le remplace par un autre scénario pour tester une autre fonctionnalité. Le modèle utilisé :
+- **tests SQL**, exécutés à la main dans phpMyAdmin ;
+- **tests Java**, écrits dans `main/Main.java` et exécutés avec la flèche verte d'IntelliJ.
+
+### 11.1 Comment tester
+
+`Main.java` contient le **dernier scénario de test** (inscription et connexion). On remplace son contenu par un autre scénario pour tester une autre fonctionnalité. Le modèle utilisé :
 
 ```java
 // Exécute une action et affiche le refus si une règle métier l'interdit
@@ -335,13 +340,58 @@ private static void essayer(Runnable action) {
 }
 ```
 
-Bonnes pratiques suivies :
+Principes suivis :
 
 - Chaque test **crée ses propres données** (un événement de test, des emails uniques) et les **supprime à la fin** : on peut relancer sans nettoyer la base.
-- On teste les **cas qui doivent échouer** (« Refuse : ... ») autant que le cas qui doit réussir.
+- On teste les **cas qui doivent échouer** (`Refuse : ...`) autant que le cas qui doit réussir.
 - MySQL doit être **démarré** avant chaque exécution.
+- Si un test s'arrête avant son nettoyage, supprimer les lignes de test dans phpMyAdmin ou réimporter `database.sql`.
 
-Si un test s'arrête avant le nettoyage, supprimer les lignes de test dans phpMyAdmin, ou réimporter `database.sql`.
+### 11.2 Tests SQL (phpMyAdmin)
+
+| Test | Ce qu'il vérifie | Résultat |
+|---|---|---|
+| Import de `database.sql` | Les 10 tables sont créées avec leurs clés et contraintes, et les données de départ sont insérées | 10 tables, 34 lignes au total |
+| `SELECT` et `WHERE` | Lecture simple ; stands libres d'un événement | Résultats attendus (`A02` et `B02` pour l'événement 1) |
+| `JOIN` | Stands avec événement et catégorie ; demandes avec nom de l'exposant ; sessions d'un visiteur (table N:N) ; places restantes par session (`LEFT JOIN` et `GROUP BY`) | Résultats attendus |
+| `INSERT` | Nouveau stand `C02`, puis demande sur ce stand | Une relance du même `INSERT` a produit l'erreur `#1062 Duplicate entry '2-C02'` : **la contrainte d'unicité (événement, numéro) fonctionne** |
+| `UPDATE` | Validation d'une demande (statut de la demande et du stand) ; scan d'un billet (statut et agent) | Statuts mis à jour |
+| `DELETE` | Annulation d'une inscription ; suppression d'un stand | La demande liée au stand supprimé a disparu : **`ON DELETE CASCADE` fonctionne** |
+
+Les requêtes sont rassemblées en commentaires à la fin de `database.sql`.
+
+### 11.3 Tests Java réussis
+
+| # | Scénario | Ce qu'il vérifie | Résultat obtenu |
+|---|---|---|---|
+| 1 | `DatabaseConnection.getConnection()` | Java communique avec MySQL | `Connexion reussie a MySQL.` |
+| 2 | `CategorieDAO` : create, findAll, update, findById, delete | Le CRUD complet en JDBC ; l'`id` généré est bien rempli dans l'objet | Toutes les étapes conformes ; après suppression, `findById` renvoie `null` |
+| 3 | `StandDAO` : create, findByEvenementId, update, delete | Conversion des énumérations (`StatutStand`) et des prix (`BigDecimal`) dans les deux sens | Liste des stands avec statuts et prix corrects ; statut modifié en `RESERVE` ; `null` après suppression |
+| 4 | `StandService` : règles de validation | Prix négatif refusé ; catégorie inexistante refusée ; stand créé avec le statut `LIBRE` par défaut ; stand introuvable signalé | 5 lignes conformes |
+| 5 | `EvenementService` et `StandService` | Date de fin avant la date de début refusée ; stand sur un événement inexistant refusé ; numéro de stand déjà pris refusé ; suppression de l'événement avec ses stands (`CASCADE`) | 5 lignes conformes |
+| 6 | `DemandeStandService` : scénario complet | Deux exposants demandent le même stand (statuts `EN_ATTENTE`) ; doublon refusé ; exposant inconnu refusé ; **validation de la demande A : A = `VALIDEE`, B = `REFUSEE` automatiquement, stand = `RESERVE`** ; revalidation refusée ; demande sur un stand réservé refusée | 9 lignes conformes |
+| 7 | Lecture d'une date avec heure | La demande 1 des données de départ est lue en `2026-10-01T09:30`, **comme dans phpMyAdmin** | Aucun décalage de fuseau horaire |
+| 8 | `SessionService` : sessions et inscriptions | Session refusée si fin avant début, hors des dates de l'événement ou capacité nulle ; inscription ; doublon refusé ; **session complète refusée** ; exposant refusé ; désinscription qui libère la place ; liste des sessions d'un visiteur (`JOIN`) | 17 lignes conformes |
+| 9 | `AuthService` : inscription et connexion | Mot de passe **haché** ; email déjà utilisé, invalide, mot de passe trop court, nom vide : refusés ; exposant enregistré dans **deux tables** (transaction) ; connexion acceptée même avec l'email en majuscules ; **même message** pour un mauvais mot de passe, un email inconnu et un compte de départ ; compte bloqué refusé, puis débloqué accepté | 14 lignes conformes |
+
+### 11.4 Un test d'erreur utile : MySQL arrêté
+
+Un test a été lancé alors que MySQL n'était pas démarré. Résultat : des erreurs `Communications link failure` et `Connection refused`, suivies de lignes trompeuses (`Cree, id = 0`, `Evenement introuvable : 1`).
+
+Ce n'est pas un bug de la règle métier : les DAO attrapent l'erreur SQL et la laissent passer, donc le service croit que tout s'est bien passé. C'est la limite décrite dans la section 12. **Avant de lancer un test, toujours vérifier que MySQL est démarré dans XAMPP.**
+
+### 11.5 Ce qui n'est pas encore vérifié
+
+À rejouer avant de considérer ces parties comme terminées :
+
+| Élément | Remarque |
+|---|---|
+| `BilletService` (réservation, scan, annulation) | Le scénario de test est écrit, mais son résultat n'a pas été contrôlé |
+| `EvenementDAO` : `findAll` et `update` | Seuls `create`, `findById` et `delete` ont servi dans les tests 5 et suivants |
+| `DatabaseConnection.main` (création de la base depuis le script) | Jamais exécuté |
+| `DemandeStandService.refuserDemande` | Le refus automatique (test 6) est vérifié, mais pas le refus manuel avec motif, ni le retour du stand à `LIBRE` |
+| `CategorieService`, `annulerBillet` (cas réussi), `getDemandesByExposant` | Non testés |
+| Contrôleurs, routes HTTP, frontend | Pas encore écrits |
 
 ## 12. Points d'attention et limites connues
 
@@ -350,8 +400,8 @@ Si un test s'arrête avant le nettoyage, supprimer les lignes de test dans phpMy
 - **`DatabaseConnection.main` réinitialise toute la base** (voir la section 3).
 - **Comptes de test** : mots de passe provisoires, connexion impossible (voir la section 6).
 - **Règles volontairement absentes**, à poser au professeur :
-    - exiger un billet pour l'événement avant de s'inscrire à une session ;
-    - vérifier la date de l'événement au moment du scan d'un billet.
+  - exiger un billet pour l'événement avant de s'inscrire à une session ;
+  - vérifier la date de l'événement au moment du scan d'un billet.
 - **Fuseau horaire** : l'URL de connexion contient `serverTimezone=UTC` (modèle du professeur). Les dates avec heure ont été vérifiées : l'heure écrite par Java est celle lue dans phpMyAdmin.
 - **Mot de passe de la base** : il est vide dans le code. Ne jamais publier un vrai mot de passe sur GitHub.
 
