@@ -1,12 +1,10 @@
 package tn.enicarthage.gestionsalon.main;
 
-import tn.enicarthage.gestionsalon.model.Evenement;
-import tn.enicarthage.gestionsalon.model.Session;
-import tn.enicarthage.gestionsalon.service.EvenementService;
-import tn.enicarthage.gestionsalon.service.SessionService;
-
-import java.time.LocalDate;
-import java.time.LocalDateTime;
+import tn.enicarthage.gestionsalon.dao.UtilisateurDAO;
+import tn.enicarthage.gestionsalon.model.Exposant;
+import tn.enicarthage.gestionsalon.model.Utilisateur;
+import tn.enicarthage.gestionsalon.model.Visiteur;
+import tn.enicarthage.gestionsalon.service.AuthService;
 
 public class Main {
 
@@ -19,81 +17,64 @@ public class Main {
         }
     }
 
-    private static Session nouvelleSession(int evenementId, String titre,
-                                           LocalDateTime debut, LocalDateTime fin,
-                                           int capacite) {
-        Session s = new Session();
-        s.setEvenementId(evenementId);
-        s.setTitre(titre);
-        s.setDescription("Session de test");
-        s.setHeureDebut(debut);
-        s.setHeureFin(fin);
-        s.setCapaciteMax(capacite);
-        return s;
-    }
-
     public static void main(String[] args) {
-        EvenementService evenementService = new EvenementService();
-        SessionService service = new SessionService();
+        AuthService service = new AuthService();
+        UtilisateurDAO dao = new UtilisateurDAO();
 
-        // Evenement de test : du 10 au 11 mars 2027
-        Evenement e = new Evenement();
-        e.setTitre("Evenement session test");
-        e.setDescription("Evenement de test");
-        e.setDateDebut(LocalDate.of(2027, 3, 10));
-        e.setDateFin(LocalDate.of(2027, 3, 11));
-        e.setLieu("Sfax");
-        evenementService.createEvenement(e);
-        System.out.println("Evenement de test cree : " + e.getId());
+        String suffixe = String.valueOf(System.currentTimeMillis());
+        String emailVisiteur = "visiteur" + suffixe + "@mail.tn";
+        String emailExposant = "exposant" + suffixe + "@mail.tn";
 
-        LocalDateTime debut = LocalDateTime.of(2027, 3, 10, 10, 0);
-        LocalDateTime fin = LocalDateTime.of(2027, 3, 10, 11, 30);
+        // 1. Inscription d'un visiteur
+        Visiteur v = service.inscrireVisiteur("Test", "Visiteur", emailVisiteur,
+                "motdepasse1", "71000099");
+        System.out.println("Visiteur inscrit, id = " + v.getId()
+                + ", role = " + v.getRole()
+                + ", empreinte hachee = " + v.getMotDePasseHash().startsWith("65536:"));
 
-        // 1. Sessions refusees
-        essayer(() -> service.createSession(
-                nouvelleSession(e.getId(), "Test", fin, debut, 1)));            // fin avant debut
-        essayer(() -> service.createSession(nouvelleSession(e.getId(), "Test",
-                LocalDateTime.of(2027, 4, 1, 10, 0),
-                LocalDateTime.of(2027, 4, 1, 11, 0), 1)));                      // hors evenement
-        essayer(() -> service.createSession(
-                nouvelleSession(e.getId(), "Test", debut, fin, 0)));            // capacite nulle
+        // 2. Inscriptions refusees
+        essayer(() -> service.inscrireVisiteur("Test", "Visiteur", emailVisiteur,
+                "motdepasse1", null));                                    // email deja pris
+        essayer(() -> service.inscrireVisiteur("Test", "Visiteur", "pas-un-email",
+                "motdepasse1", null));                                    // email invalide
+        essayer(() -> service.inscrireVisiteur("Test", "Visiteur", "autre" + suffixe + "@mail.tn",
+                "court", null));                                          // mot de passe trop court
+        essayer(() -> service.inscrireVisiteur(" ", "Visiteur", "autre" + suffixe + "@mail.tn",
+                "motdepasse1", null));                                    // nom vide
 
-        // 2. Session valide avec une seule place
-        Session s = nouvelleSession(e.getId(), "Session de test", debut, fin, 1);
-        service.createSession(s);
-        System.out.println("Session creee, id = " + s.getId()
-                + ", debut = " + service.getSessionById(s.getId()).getHeureDebut()
-                + ", places restantes = " + service.getPlacesRestantes(s.getId()));
+        // 3. Inscription d'un exposant (deux tables, une transaction)
+        Exposant e = service.inscrireExposant("Test", "Exposant", emailExposant,
+                "motdepasse2", "71000098", "Entreprise Test", "Societe de test");
+        System.out.println("Exposant inscrit, id = " + e.getId());
 
-        // 3. Inscriptions
-        service.inscrireVisiteur(5, s.getId());
-        System.out.println("Visiteur 5 inscrit. Places restantes : "
-                + service.getPlacesRestantes(s.getId()));
+        // 4. Connexions reussies
+        Utilisateur connecte = service.seConnecter(emailVisiteur, "motdepasse1");
+        System.out.println("Connexion : " + connecte.getEmail()
+                + " (" + connecte.getRole() + ")");
 
-        essayer(() -> service.inscrireVisiteur(5, s.getId()));    // deja inscrit
-        essayer(() -> service.inscrireVisiteur(6, s.getId()));    // session complete
-        essayer(() -> service.inscrireVisiteur(2, s.getId()));    // c'est un exposant
-        essayer(() -> service.inscrireVisiteur(999, s.getId()));  // visiteur inconnu
-        essayer(() -> service.inscrireVisiteur(6, 999));          // session inconnue
+        Utilisateur connecteExposant = service.seConnecter(emailExposant.toUpperCase(),
+                "motdepasse2");
+        System.out.println("Connexion : " + connecteExposant.getEmail()
+                + " (" + connecteExposant.getRole() + ", "
+                + ((Exposant) connecteExposant).getNomEntreprise() + ")");
 
-        // 4. Desinscription, puis inscription du visiteur 6
-        service.desinscrireVisiteur(5, s.getId());
-        System.out.println("Apres desinscription du visiteur 5 : places restantes = "
-                + service.getPlacesRestantes(s.getId()));
-        essayer(() -> service.desinscrireVisiteur(5, s.getId())); // n'est plus inscrit
+        // 5. Connexions refusees (meme message pour un email inconnu et un mauvais mot de passe)
+        essayer(() -> service.seConnecter(emailVisiteur, "mauvais"));
+        essayer(() -> service.seConnecter("inconnu@mail.tn", "motdepasse1"));
 
-        service.inscrireVisiteur(6, s.getId());
-        System.out.println("Visiteur 6 inscrit. Places restantes : "
-                + service.getPlacesRestantes(s.getId()));
+        // 6. Un compte de depart (mot de passe provisoire) ne peut pas se connecter
+        essayer(() -> service.seConnecter("admin@salon.tn", "motdepasse1"));
 
-        // 5. Les sessions du visiteur 6 (JOIN sur la table intermediaire)
-        System.out.println("--- Sessions du visiteur 6 ---");
-        for (Session x : service.getSessionsByVisiteur(6)) {
-            System.out.println("- " + x.getTitre() + " (" + x.getHeureDebut() + ")");
-        }
+        // 7. Compte bloque : refuse, puis debloque : accepte
+        dao.setBloque(v.getId(), true);
+        essayer(() -> service.seConnecter(emailVisiteur, "motdepasse1"));
+        dao.setBloque(v.getId(), false);
+        System.out.println("Apres deblocage : "
+                + service.seConnecter(emailVisiteur, "motdepasse1").getEmail());
 
-        // 6. Nettoyage (sessions et inscriptions supprimees avec l'evenement : CASCADE)
-        evenementService.deleteEvenement(e.getId());
+        // 8. Nettoyage (la ligne exposant est supprimee avec l'utilisateur : CASCADE)
+        dao.delete(v.getId());
+        dao.delete(e.getId());
         System.out.println("Nettoyage termine.");
     }
 }
