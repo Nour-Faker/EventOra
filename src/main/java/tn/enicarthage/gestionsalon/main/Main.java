@@ -1,11 +1,12 @@
 package tn.enicarthage.gestionsalon.main;
 
-import tn.enicarthage.gestionsalon.model.Billet;
 import tn.enicarthage.gestionsalon.model.Evenement;
-import tn.enicarthage.gestionsalon.service.BilletService;
+import tn.enicarthage.gestionsalon.model.Session;
 import tn.enicarthage.gestionsalon.service.EvenementService;
+import tn.enicarthage.gestionsalon.service.SessionService;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 public class Main {
 
@@ -18,58 +19,81 @@ public class Main {
         }
     }
 
-    private static Evenement creerEvenement(EvenementService service, String titre,
-                                            LocalDate debut, LocalDate fin) {
-        Evenement e = new Evenement();
-        e.setTitre(titre);
-        e.setDescription("Evenement de test");
-        e.setDateDebut(debut);
-        e.setDateFin(fin);
-        e.setLieu("Sfax");
-        service.createEvenement(e);
-        return e;
+    private static Session nouvelleSession(int evenementId, String titre,
+                                           LocalDateTime debut, LocalDateTime fin,
+                                           int capacite) {
+        Session s = new Session();
+        s.setEvenementId(evenementId);
+        s.setTitre(titre);
+        s.setDescription("Session de test");
+        s.setHeureDebut(debut);
+        s.setHeureFin(fin);
+        s.setCapaciteMax(capacite);
+        return s;
     }
 
     public static void main(String[] args) {
         EvenementService evenementService = new EvenementService();
-        BilletService service = new BilletService();
+        SessionService service = new SessionService();
 
-        Evenement futur = creerEvenement(evenementService, "Evenement futur test",
-                LocalDate.of(2027, 3, 10), LocalDate.of(2027, 3, 11));
-        Evenement passe = creerEvenement(evenementService, "Evenement passe test",
-                LocalDate.of(2025, 1, 10), LocalDate.of(2025, 1, 11));
-        System.out.println("Evenements de test crees : " + futur.getId()
-                + " et " + passe.getId());
+        // Evenement de test : du 10 au 11 mars 2027
+        Evenement e = new Evenement();
+        e.setTitre("Evenement session test");
+        e.setDescription("Evenement de test");
+        e.setDateDebut(LocalDate.of(2027, 3, 10));
+        e.setDateFin(LocalDate.of(2027, 3, 11));
+        e.setLieu("Sfax");
+        evenementService.createEvenement(e);
+        System.out.println("Evenement de test cree : " + e.getId());
 
-        // 1. Reservation valide (visiteur 5)
-        Billet b = service.reserverBillet(5, futur.getId());
-        System.out.println("Billet reserve : statut = " + b.getStatut()
-                + ", code = " + b.getCodeQR());
+        LocalDateTime debut = LocalDateTime.of(2027, 3, 10, 10, 0);
+        LocalDateTime fin = LocalDateTime.of(2027, 3, 10, 11, 30);
 
-        // 2. Reservations refusees
-        essayer(() -> service.reserverBillet(5, futur.getId()));    // doublon
-        essayer(() -> service.reserverBillet(999, futur.getId()));  // visiteur inconnu
-        essayer(() -> service.reserverBillet(2, futur.getId()));    // c'est un exposant
-        essayer(() -> service.reserverBillet(5, 999));              // evenement inconnu
-        essayer(() -> service.reserverBillet(5, passe.getId()));    // evenement termine
+        // 1. Sessions refusees
+        essayer(() -> service.createSession(
+                nouvelleSession(e.getId(), "Test", fin, debut, 1)));            // fin avant debut
+        essayer(() -> service.createSession(nouvelleSession(e.getId(), "Test",
+                LocalDateTime.of(2027, 4, 1, 10, 0),
+                LocalDateTime.of(2027, 4, 1, 11, 0), 1)));                      // hors evenement
+        essayer(() -> service.createSession(
+                nouvelleSession(e.getId(), "Test", debut, fin, 0)));            // capacite nulle
 
-        // 3. Scans refuses
-        essayer(() -> service.scannerBillet(b.getCodeQR(), 2));     // pas un agent
-        essayer(() -> service.scannerBillet("QR-INCONNU", 7));      // billet inconnu
+        // 2. Session valide avec une seule place
+        Session s = nouvelleSession(e.getId(), "Session de test", debut, fin, 1);
+        service.createSession(s);
+        System.out.println("Session creee, id = " + s.getId()
+                + ", debut = " + service.getSessionById(s.getId()).getHeureDebut()
+                + ", places restantes = " + service.getPlacesRestantes(s.getId()));
 
-        // 4. Scan valide par l'agent 7
-        service.scannerBillet(b.getCodeQR(), 7);
-        Billet scanne = service.getBilletById(b.getId());
-        System.out.println("Apres scan : statut = " + scanne.getStatut()
-                + ", agent = " + scanne.getAgentId());
+        // 3. Inscriptions
+        service.inscrireVisiteur(5, s.getId());
+        System.out.println("Visiteur 5 inscrit. Places restantes : "
+                + service.getPlacesRestantes(s.getId()));
 
-        // 5. Billet deja utilise
-        essayer(() -> service.scannerBillet(b.getCodeQR(), 7));
-        essayer(() -> service.annulerBillet(b.getId()));
+        essayer(() -> service.inscrireVisiteur(5, s.getId()));    // deja inscrit
+        essayer(() -> service.inscrireVisiteur(6, s.getId()));    // session complete
+        essayer(() -> service.inscrireVisiteur(2, s.getId()));    // c'est un exposant
+        essayer(() -> service.inscrireVisiteur(999, s.getId()));  // visiteur inconnu
+        essayer(() -> service.inscrireVisiteur(6, 999));          // session inconnue
 
-        // 6. Nettoyage (les billets sont supprimes avec l'evenement : CASCADE)
-        evenementService.deleteEvenement(futur.getId());
-        evenementService.deleteEvenement(passe.getId());
+        // 4. Desinscription, puis inscription du visiteur 6
+        service.desinscrireVisiteur(5, s.getId());
+        System.out.println("Apres desinscription du visiteur 5 : places restantes = "
+                + service.getPlacesRestantes(s.getId()));
+        essayer(() -> service.desinscrireVisiteur(5, s.getId())); // n'est plus inscrit
+
+        service.inscrireVisiteur(6, s.getId());
+        System.out.println("Visiteur 6 inscrit. Places restantes : "
+                + service.getPlacesRestantes(s.getId()));
+
+        // 5. Les sessions du visiteur 6 (JOIN sur la table intermediaire)
+        System.out.println("--- Sessions du visiteur 6 ---");
+        for (Session x : service.getSessionsByVisiteur(6)) {
+            System.out.println("- " + x.getTitre() + " (" + x.getHeureDebut() + ")");
+        }
+
+        // 6. Nettoyage (sessions et inscriptions supprimees avec l'evenement : CASCADE)
+        evenementService.deleteEvenement(e.getId());
         System.out.println("Nettoyage termine.");
     }
 }
