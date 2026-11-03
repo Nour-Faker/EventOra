@@ -1,7 +1,7 @@
 package tn.enicarthage.gestionsalon.dao;
 
 import tn.enicarthage.gestionsalon.config.DatabaseConnection;
-
+import tn.enicarthage.gestionsalon.exception.DataAccessException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -22,7 +22,7 @@ public class InscriptionSessionDAO {
             statement.executeUpdate();
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
         }
     }
 
@@ -39,7 +39,7 @@ public class InscriptionSessionDAO {
             statement.executeUpdate();
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
         }
     }
 
@@ -59,10 +59,8 @@ public class InscriptionSessionDAO {
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
         }
-
-        return false;
     }
 
     // Nombre d'inscrits a une session
@@ -82,7 +80,7 @@ public class InscriptionSessionDAO {
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
         }
 
         return 0;

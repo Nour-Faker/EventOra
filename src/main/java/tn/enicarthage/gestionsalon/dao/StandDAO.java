@@ -3,7 +3,7 @@ package tn.enicarthage.gestionsalon.dao;
 import tn.enicarthage.gestionsalon.config.DatabaseConnection;
 import tn.enicarthage.gestionsalon.model.Stand;
 import tn.enicarthage.gestionsalon.model.StatutStand;
-
+import tn.enicarthage.gestionsalon.exception.DataAccessException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -41,7 +41,7 @@ public class StandDAO {
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("TODO", e);
         }
     }
 
@@ -60,7 +60,7 @@ public class StandDAO {
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("TODO", e);
         }
 
         return stands;
@@ -83,7 +83,7 @@ public class StandDAO {
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("TODO", e);
         }
 
         return null;
@@ -107,7 +107,7 @@ public class StandDAO {
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("TODO", e);
         }
 
         return stands;
@@ -134,7 +134,7 @@ public class StandDAO {
             statement.executeUpdate();
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("TODO", e);
         }
     }
 
@@ -150,7 +150,7 @@ public class StandDAO {
             statement.executeUpdate();
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("TODO", e);
         }
     }
 

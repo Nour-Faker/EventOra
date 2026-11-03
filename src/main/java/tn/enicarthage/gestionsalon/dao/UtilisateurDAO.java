@@ -7,7 +7,7 @@ import tn.enicarthage.gestionsalon.model.Exposant;
 import tn.enicarthage.gestionsalon.model.Role;
 import tn.enicarthage.gestionsalon.model.Utilisateur;
 import tn.enicarthage.gestionsalon.model.Visiteur;
-
+import tn.enicarthage.gestionsalon.exception.DataAccessException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -33,7 +33,7 @@ public class UtilisateurDAO {
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
         }
 
         return null;
@@ -53,10 +53,9 @@ public class UtilisateurDAO {
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
         }
 
-        return false;
     }
 
     // CREATE : un utilisateur sans table propre (Visiteur, Administrateur)
@@ -64,7 +63,7 @@ public class UtilisateurDAO {
         try (Connection connection = DatabaseConnection.getConnection()) {
             insertUtilisateur(connection, utilisateur);
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
         }
     }
 
@@ -95,7 +94,7 @@ public class UtilisateurDAO {
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
         }
     }
 
@@ -121,7 +120,7 @@ public class UtilisateurDAO {
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
         }
 
         return null;
@@ -140,7 +139,7 @@ public class UtilisateurDAO {
             statement.executeUpdate();
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
         }
     }
 
@@ -156,7 +155,7 @@ public class UtilisateurDAO {
             statement.executeUpdate();
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
         }
     }
 

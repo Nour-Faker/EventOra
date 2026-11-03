@@ -3,7 +3,7 @@ package tn.enicarthage.gestionsalon.dao;
 import tn.enicarthage.gestionsalon.config.DatabaseConnection;
 import tn.enicarthage.gestionsalon.model.DemandeStand;
 import tn.enicarthage.gestionsalon.model.StatutDemande;
-
+import tn.enicarthage.gestionsalon.exception.DataAccessException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -38,7 +38,7 @@ public class DemandeStandDAO {
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
         }
     }
 
@@ -64,7 +64,7 @@ public class DemandeStandDAO {
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
         }
 
         return null;
@@ -104,7 +104,7 @@ public class DemandeStandDAO {
             statement.executeUpdate();
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
         }
     }
 
@@ -120,7 +120,7 @@ public class DemandeStandDAO {
             statement.executeUpdate();
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
         }
     }
 
@@ -143,7 +143,7 @@ public class DemandeStandDAO {
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
         }
 
         return demandes;

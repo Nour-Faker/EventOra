@@ -1,8 +1,9 @@
 package tn.enicarthage.gestionsalon.dao;
 
 import tn.enicarthage.gestionsalon.config.DatabaseConnection;
+import tn.enicarthage.gestionsalon.exception.DataAccessException;
 import tn.enicarthage.gestionsalon.model.Categorie;
-
+import tn.enicarthage.gestionsalon.exception.DataAccessException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -33,7 +34,7 @@ public class CategorieDAO {
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("Erreur lors de la creation de la categorie", e);
         }
     }
 
@@ -52,7 +53,7 @@ public class CategorieDAO {
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("Erreur lors de la lecture des categories", e);
         }
 
         return categories;
@@ -75,7 +76,7 @@ public class CategorieDAO {
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("Erreur lors de la recherche de la categorie " + id, e);
         }
 
         return null;
@@ -95,7 +96,7 @@ public class CategorieDAO {
             statement.executeUpdate();
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("Erreur lors de la modification de la categorie " + categorie.getId(), e);
         }
     }
 
@@ -111,7 +112,7 @@ public class CategorieDAO {
             statement.executeUpdate();
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("Erreur lors de la suppression de la categorie " + id, e);
         }
     }
 
