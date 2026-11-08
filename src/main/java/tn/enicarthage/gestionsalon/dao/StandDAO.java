@@ -1,9 +1,10 @@
 package tn.enicarthage.gestionsalon.dao;
 
 import tn.enicarthage.gestionsalon.config.DatabaseConnection;
+import tn.enicarthage.gestionsalon.exception.DataAccessException;
 import tn.enicarthage.gestionsalon.model.Stand;
 import tn.enicarthage.gestionsalon.model.StatutStand;
-import tn.enicarthage.gestionsalon.exception.DataAccessException;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -41,7 +42,8 @@ public class StandDAO {
             }
 
         } catch (SQLException e) {
-            throw new DataAccessException("TODO", e);
+            throw new DataAccessException(
+                    "Erreur lors de la creation du stand " + stand.getNumero(), e);
         }
     }
 
@@ -60,7 +62,7 @@ public class StandDAO {
             }
 
         } catch (SQLException e) {
-            throw new DataAccessException("TODO", e);
+            throw new DataAccessException("Erreur lors de la lecture des stands", e);
         }
 
         return stands;
@@ -83,7 +85,7 @@ public class StandDAO {
             }
 
         } catch (SQLException e) {
-            throw new DataAccessException("TODO", e);
+            throw new DataAccessException("Erreur lors de la recherche du stand " + id, e);
         }
 
         return null;
@@ -107,7 +109,8 @@ public class StandDAO {
             }
 
         } catch (SQLException e) {
-            throw new DataAccessException("TODO", e);
+            throw new DataAccessException(
+                    "Erreur lors de la lecture des stands de l'evenement " + evenementId, e);
         }
 
         return stands;
@@ -134,7 +137,24 @@ public class StandDAO {
             statement.executeUpdate();
 
         } catch (SQLException e) {
-            throw new DataAccessException("TODO", e);
+            throw new DataAccessException(
+                    "Erreur lors de la modification du stand " + stand.getId(), e);
+        }
+    }
+
+    // UPDATE du statut seul, dans la transaction de l'appelant.
+    // Ne PAS fermer la connexion ici.
+    public void updateStatut(Connection connection, int standId, StatutStand statut) {
+        String sql = "UPDATE stand SET statut = ? WHERE id = ?";
+
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, statut.name());
+            statement.setInt(2, standId);
+            statement.executeUpdate();
+
+        } catch (SQLException e) {
+            throw new DataAccessException(
+                    "Erreur lors du changement de statut du stand " + standId, e);
         }
     }
 
@@ -150,7 +170,7 @@ public class StandDAO {
             statement.executeUpdate();
 
         } catch (SQLException e) {
-            throw new DataAccessException("TODO", e);
+            throw new DataAccessException("Erreur lors de la suppression du stand " + id, e);
         }
     }
 
@@ -166,5 +186,18 @@ public class StandDAO {
         stand.setPrix(result.getBigDecimal("prix"));
         stand.setStatut(StatutStand.valueOf(result.getString("statut")));
         return stand;
+    }
+    public void updateStatutSiEnAttente(Connection connection, int standId, StatutStand nouveau) {
+        String sql = "UPDATE stand SET statut = ? WHERE id = ? AND statut = 'EN_ATTENTE'";
+
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, nouveau.name());
+            statement.setInt(2, standId);
+            statement.executeUpdate();
+
+        } catch (SQLException e) {
+            throw new DataAccessException(
+                    "Erreur lors du changement de statut du stand " + standId, e);
+        }
     }
 }

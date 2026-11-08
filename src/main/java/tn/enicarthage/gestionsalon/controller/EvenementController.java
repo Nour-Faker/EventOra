@@ -9,6 +9,7 @@ import java.util.List;
 public class EvenementController {
 
     private final EvenementService service = new EvenementService();
+    private final AuthController authController = new AuthController();
 
     public List<Evenement> lister() {
         return service.getAllEvenements();

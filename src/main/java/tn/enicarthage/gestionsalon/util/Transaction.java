@@ -5,23 +5,28 @@ import tn.enicarthage.gestionsalon.exception.DataAccessException;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.function.Consumer;
 
 public final class Transaction {
 
+    @FunctionalInterface
+    public interface Work<T> {
+        T execute(Connection connection);
+    }
+
     private Transaction() {}
 
-    public static void run(Consumer<Connection> work) {
+    public static <T> T run(Work<T> work) {
         try (Connection connection = DatabaseConnection.getConnection()) {
             connection.setAutoCommit(false);
             try {
-                work.accept(connection);
+                T result = work.execute(connection);
                 connection.commit();
+                return result;
             } catch (RuntimeException e) {
                 try {
                     connection.rollback();
                 } catch (SQLException rollbackError) {
-                    e.addSuppressed(rollbackError); // keep the original error visible
+                    e.addSuppressed(rollbackError);
                 }
                 throw e;
             }

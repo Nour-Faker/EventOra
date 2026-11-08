@@ -44,3 +44,8 @@ body.json
 .idea/
 *.iml
 body.json
+
+target/
+.idea/
+node_modules/
+*.bak

@@ -12,7 +12,15 @@ import com.sun.net.httpserver.HttpExchange;
 import tn.enicarthage.gestionsalon.controller.EvenementController;
 import tn.enicarthage.gestionsalon.dto.EvenementRequest;
 import tn.enicarthage.gestionsalon.exception.ResourceNotFoundException;
+import tn.enicarthage.gestionsalon.exception.AuthenticationException;
+import tn.enicarthage.gestionsalon.exception.ForbiddenException;
+import tn.enicarthage.gestionsalon.util.JwtUtil;
+import tn.enicarthage.gestionsalon.controller.AuthController;
+import tn.enicarthage.gestionsalon.dto.LoginRequest;
+import tn.enicarthage.gestionsalon.dto.RegisterRequest;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -24,6 +32,7 @@ import java.util.Map;
 public class Router {
 
     private static final String ORIGINE_AUTORISEE = "http://localhost:5173";
+    private static final Logger LOGGER = Logger.getLogger(Router.class.getName());
 
     private record Reponse(int statut, String corps) {
     }
@@ -67,10 +76,9 @@ public class Router {
         Headers h = exchange.getResponseHeaders();
         h.set("Access-Control-Allow-Origin", ORIGINE_AUTORISEE);
         h.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-        h.set("Access-Control-Allow-Headers", "Content-Type");
+        h.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
         h.set("Vary", "Origin");
     }
-
     public void dispatcher(HttpExchange exchange) throws IOException {
         ajouterCors(exchange);
 
@@ -88,12 +96,16 @@ public class Router {
         try {
             Reponse reponse = router(methode, segments, exchange);
             envoyer(exchange, reponse.statut(), reponse.corps());
+        } catch (AuthenticationException e) {
+            envoyer(exchange, 401, messageErreur(e));
+        } catch (ForbiddenException e) {
+            envoyer(exchange, 403, messageErreur(e));
         } catch (ResourceNotFoundException e) {
             envoyer(exchange, 404, messageErreur(e));
         } catch (IllegalArgumentException e) {
             envoyer(exchange, 400, messageErreur(e));
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Erreur interne sur " + methode + " " + chemin, e);
             envoyer(exchange, 500, gson.toJson(Map.of("erreur", "Erreur interne du serveur.")));
         }
     }
@@ -106,6 +118,8 @@ public class Router {
         switch (segments[1]) {
             case "events":
                 return routesEvenement(methode, segments, exchange);
+            case "auth":
+                return routesAuth(methode, segments, exchange);
             default:
                 throw new ResourceNotFoundException("Route inconnue : /" + segments[1]);
         }
@@ -118,6 +132,7 @@ public class Router {
                 case "GET":
                     return new Reponse(200, gson.toJson(evenementController.lister()));
                 case "POST": {
+                    exigerRole(exchange, "ADMINISTRATEUR");
                     EvenementRequest request = lireCorps(exchange, EvenementRequest.class);
                     return new Reponse(201, gson.toJson(evenementController.creer(request)));
                 }
@@ -132,10 +147,12 @@ public class Router {
                 case "GET":
                     return new Reponse(200, gson.toJson(evenementController.obtenir(id)));
                 case "PUT": {
+                    exigerRole(exchange, "ADMINISTRATEUR");
                     EvenementRequest request = lireCorps(exchange, EvenementRequest.class);
                     return new Reponse(200, gson.toJson(evenementController.modifier(id, request)));
                 }
                 case "DELETE":
+                    exigerRole(exchange, "ADMINISTRATEUR");
                     evenementController.supprimer(id);
                     return new Reponse(204, "");
                 default:
@@ -144,6 +161,43 @@ public class Router {
         }
 
         throw new ResourceNotFoundException("Route inconnue : /" + String.join("/", segments));
+    }
+
+    // POST /auth/login | POST /auth/register
+    private Reponse routesAuth(String methode, String[] segments, HttpExchange exchange) throws IOException {
+        if (segments.length != 3 || !"POST".equals(methode)) {
+            throw new ResourceNotFoundException("Route inconnue : /" + String.join("/", segments));
+        }
+        switch (segments[2]) {
+            case "login":
+                return new Reponse(200, gson.toJson(
+                        authController.login(lireCorps(exchange, LoginRequest.class))));
+            case "register":
+                return new Reponse(201, gson.toJson(
+                        authController.register(lireCorps(exchange, RegisterRequest.class))));
+            default:
+                throw new ResourceNotFoundException("Route inconnue : /auth/" + segments[2]);
+        }
+    }
+
+    // Lit "Authorization: Bearer <jeton>" et renvoie l'utilisateur connecte
+    private JwtUtil.Claims authentifier(HttpExchange exchange) {
+        String entete = exchange.getRequestHeaders().getFirst("Authorization");
+        if (entete == null || !entete.startsWith("Bearer ")) {
+            throw new AuthenticationException("Authentification requise.");
+        }
+        return JwtUtil.verifier(entete.substring(7).trim());
+    }
+
+    // Authentifie puis verifie le role
+    private JwtUtil.Claims exigerRole(HttpExchange exchange, String... rolesAutorises) {
+        JwtUtil.Claims claims = authentifier(exchange);
+        for (String role : rolesAutorises) {
+            if (role.equals(claims.role())) {
+                return claims;
+            }
+        }
+        throw new ForbiddenException("Acces refuse pour le role " + claims.role() + ".");
     }
 
     private <T> T lireCorps(HttpExchange exchange, Class<T> type) throws IOException {
