@@ -33,6 +33,7 @@ public class Router {
 
     private static final String ORIGINE_AUTORISEE = "http://localhost:5173";
     private static final Logger LOGGER = Logger.getLogger(Router.class.getName());
+    private final AuthController authController = new AuthController();
 
     private record Reponse(int statut, String corps) {
     }
