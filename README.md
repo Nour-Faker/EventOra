@@ -100,7 +100,7 @@ gestion-salon/
 
 > **À confirmer avec le professeur** : le guide du cours place `pom.xml` et `src` dans un dossier `backend/`, et `database.sql` dans un dossier `database/` à la racine, à côté d'un dossier `frontend/`. Ce n'est pas encore le cas. Quand la structure sera modifiée, mettre à jour ce schéma et le chemin lu par `DatabaseConnection.main` (`src/main/resources/database.sql`).
 
-Package de base : `tn.enicarthage.gestionsalon`.
+Package de base : `gestionSalon`.
 
 ## 5. Architecture du backend
 
