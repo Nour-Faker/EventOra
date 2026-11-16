@@ -1,34 +1,27 @@
-package tn.enicarthage.gestionSalon.service;
+package tn.enicarthage.gestionsalon.service;
 
-import tn.enicarthage.gestionSalon.dao.DemandeStandDAO;
-import tn.enicarthage.gestionSalon.dao.ExposantDAO;
-import tn.enicarthage.gestionSalon.dao.StandDAO;
-import tn.enicarthage.gestionSalon.exception.ResourceNotFoundException;
-import tn.enicarthage.gestionSalon.model.DemandeStand;
-import tn.enicarthage.gestionSalon.model.Stand;
-import tn.enicarthage.gestionSalon.model.StatutDemande;
-import tn.enicarthage.gestionSalon.model.StatutStand;
+import tn.enicarthage.gestionsalon.dao.DemandeStandDAO;
+import tn.enicarthage.gestionsalon.dao.ExposantDAO;
+import tn.enicarthage.gestionsalon.dao.StandDAO;
+import tn.enicarthage.gestionsalon.exception.ResourceNotFoundException;
+import tn.enicarthage.gestionsalon.model.DemandeStand;
+import tn.enicarthage.gestionsalon.model.Stand;
+import tn.enicarthage.gestionsalon.model.StatutDemande;
+import tn.enicarthage.gestionsalon.model.StatutStand;
+import tn.enicarthage.gestionsalon.util.Transaction;
 
 import java.util.List;
 
 public class DemandeStandService {
 
-    private final DemandeStandDAO demandeDAO;
-    private final StandDAO standDAO;
-    private final ExposantDAO exposantDAO;
+    private final DemandeStandDAO demandeDAO = new DemandeStandDAO();
+    private final StandDAO standDAO = new StandDAO();
+    private final ExposantDAO exposantDAO = new ExposantDAO();
 
-    public DemandeStandService() {
-        this.demandeDAO = new DemandeStandDAO();
-        this.standDAO = new StandDAO();
-        this.exposantDAO = new ExposantDAO();
-    }
-
-    // Un exposant demande un stand
     public DemandeStand createDemande(int exposantId, int standId) {
         if (!exposantDAO.exists(exposantId)) {
             throw new ResourceNotFoundException("Exposant introuvable : " + exposantId);
         }
-
         Stand stand = standDAO.findById(standId);
         if (stand == null) {
             throw new ResourceNotFoundException("Stand introuvable : " + standId);
@@ -36,7 +29,6 @@ public class DemandeStandService {
         if (stand.getStatut() == StatutStand.RESERVE) {
             throw new IllegalArgumentException("Ce stand est deja reserve.");
         }
-
         for (DemandeStand existante : demandeDAO.findByStandId(standId)) {
             if (existante.getExposantId() == exposantId
                     && existante.getStatut() == StatutDemande.EN_ATTENTE) {
@@ -49,68 +41,57 @@ public class DemandeStandService {
         demande.setExposantId(exposantId);
         demande.setStandId(standId);
         demande.setStatut(StatutDemande.EN_ATTENTE);
-        demandeDAO.create(demande);
 
-        if (stand.getStatut() == StatutStand.LIBRE) {
-            stand.setStatut(StatutStand.EN_ATTENTE);
-            standDAO.update(stand);
-        }
-
+        Transaction.run(connection -> {
+            demandeDAO.create(connection, demande);
+            if (stand.getStatut() == StatutStand.LIBRE) {
+                standDAO.updateStatut(connection, standId, StatutStand.EN_ATTENTE);
+            }
+            return null;
+        });
         return demande;
     }
 
-    // L'administrateur valide une demande
     public void validerDemande(int demandeId, int adminId) {
         DemandeStand demande = getDemandeById(demandeId);
         verifierEnAttente(demande);
 
-        Stand stand = standDAO.findById(demande.getStandId());
+        Transaction.run(connection -> {
+            demande.setStatut(StatutDemande.VALIDEE);
+            demande.setAdminId(adminId);
+            demande.setMotifRefus(null);
 
-        demande.setStatut(StatutDemande.VALIDEE);
-        demande.setAdminId(adminId);
-        demandeDAO.update(demande);
-
-        stand.setStatut(StatutStand.RESERVE);
-        standDAO.update(stand);
-
-        // Les autres demandes en attente sur ce stand sont refusees
-        for (DemandeStand autre : demandeDAO.findByStandId(stand.getId())) {
-            if (autre.getId() != demande.getId()
-                    && autre.getStatut() == StatutDemande.EN_ATTENTE) {
-                autre.setStatut(StatutDemande.REFUSEE);
-                autre.setAdminId(adminId);
-                autre.setMotifRefus("Stand attribue a un autre exposant");
-                demandeDAO.update(autre);
+            if (!demandeDAO.updateSiEnAttente(connection, demande)) {
+                throw new IllegalArgumentException("La demande n'est plus en attente.");
             }
-        }
+            standDAO.updateStatut(connection, demande.getStandId(), StatutStand.RESERVE);
+            demandeDAO.refuserAutresEnAttente(
+                    connection, demande.getStandId(), demande.getId(), adminId);
+            return null;
+        });
     }
 
-    // L'administrateur refuse une demande
     public void refuserDemande(int demandeId, int adminId, String motif) {
         if (motif == null || motif.isBlank()) {
             throw new IllegalArgumentException("Le motif de refus est obligatoire.");
         }
-
         DemandeStand demande = getDemandeById(demandeId);
         verifierEnAttente(demande);
 
-        demande.setStatut(StatutDemande.REFUSEE);
-        demande.setAdminId(adminId);
-        demande.setMotifRefus(motif);
-        demandeDAO.update(demande);
+        Transaction.run(connection -> {
+            demande.setStatut(StatutDemande.REFUSEE);
+            demande.setAdminId(adminId);
+            demande.setMotifRefus(motif);
 
-        // Si plus aucune demande n'est en attente, le stand redevient libre
-        Stand stand = standDAO.findById(demande.getStandId());
-        boolean encoreEnAttente = false;
-        for (DemandeStand autre : demandeDAO.findByStandId(stand.getId())) {
-            if (autre.getStatut() == StatutDemande.EN_ATTENTE) {
-                encoreEnAttente = true;
+            if (!demandeDAO.updateSiEnAttente(connection, demande)) {
+                throw new IllegalArgumentException("La demande n'est plus en attente.");
             }
-        }
-        if (!encoreEnAttente && stand.getStatut() == StatutStand.EN_ATTENTE) {
-            stand.setStatut(StatutStand.LIBRE);
-            standDAO.update(stand);
-        }
+            if (demandeDAO.countEnAttenteByStand(connection, demande.getStandId()) == 0) {
+                standDAO.updateStatutSiEnAttente(
+                        connection, demande.getStandId(), StatutStand.LIBRE);
+            }
+            return null;
+        });
     }
 
     public DemandeStand getDemandeById(int id) {
@@ -131,8 +112,7 @@ public class DemandeStandService {
 
     private void verifierEnAttente(DemandeStand demande) {
         if (demande.getStatut() != StatutDemande.EN_ATTENTE) {
-            throw new IllegalArgumentException(
-                    "Seule une demande en attente peut etre traitee.");
+            throw new IllegalArgumentException("Seule une demande en attente peut etre traitee.");
         }
     }
 }

@@ -1,7 +1,7 @@
-package tn.enicarthage.gestionSalon.dao;
+package tn.enicarthage.gestionsalon.dao;
 
-import tn.enicarthage.gestionSalon.config.DatabaseConnection;
-
+import tn.enicarthage.gestionsalon.config.DatabaseConnection;
+import tn.enicarthage.gestionsalon.exception.DataAccessException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -23,9 +23,7 @@ public class ExposantDAO {
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
         }
-
-        return false;
     }
 }

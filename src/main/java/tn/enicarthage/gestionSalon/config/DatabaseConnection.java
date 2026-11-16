@@ -31,11 +31,7 @@ public final class DatabaseConnection {
     }
 
     public static void main(String[] args) {
-
-        Path databaseScript = Paths.get(
-                "src", "main", "resources", "database.sql"
-        );
-
+        Path databaseScript = Paths.get("src", "main", "resources", "database/database.sql");
         try {
             initializeDatabase(Files.readString(databaseScript, StandardCharsets.UTF_8));
             System.out.println("DB + tables creees avec succes.");
@@ -55,5 +51,4 @@ public final class DatabaseConnection {
             statement.execute(databaseSql);
         }
     }
-
 }

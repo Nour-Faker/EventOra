@@ -1,9 +1,9 @@
-package tn.enicarthage.gestionSalon.dao;
+package tn.enicarthage.gestionsalon.dao;
 
-import tn.enicarthage.gestionSalon.config.DatabaseConnection;
-import tn.enicarthage.gestionSalon.model.Billet;
-import tn.enicarthage.gestionSalon.model.StatutBillet;
-
+import tn.enicarthage.gestionsalon.config.DatabaseConnection;
+import tn.enicarthage.gestionsalon.model.Billet;
+import tn.enicarthage.gestionsalon.model.StatutBillet;
+import tn.enicarthage.gestionsalon.exception.DataAccessException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -39,7 +39,7 @@ public class BilletDAO {
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
         }
     }
 
@@ -71,7 +71,7 @@ public class BilletDAO {
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
         }
 
         return billets;
@@ -97,7 +97,7 @@ public class BilletDAO {
             statement.executeUpdate();
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
         }
     }
 
@@ -113,7 +113,7 @@ public class BilletDAO {
             statement.executeUpdate();
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
         }
     }
 
@@ -133,7 +133,7 @@ public class BilletDAO {
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
         }
 
         return null;
