@@ -106,8 +106,8 @@ public class DemandeStandDAO {
 
     // UPDATE garde : ne reussit que si la demande est encore EN_ATTENTE
     public boolean updateSiEnAttente(Connection connection, DemandeStand demande) {
-        String sql = "UPDATE demande_stand SET statut = ?, admin_id = ?, motif_refus = ? "
-                + "WHERE id = ? AND statut = 'EN_ATTENTE'";
+        String sql = "UPDATE demande_stand SET statut = ?, admin_id = ?, motif_refus = ?, "
+                + "date_traitement = NOW() WHERE id = ? AND statut = 'EN_ATTENTE'";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             bindUpdate(statement, demande);
             return statement.executeUpdate() == 1;
@@ -119,8 +119,8 @@ public class DemandeStandDAO {
 
     public int refuserAutresEnAttente(Connection connection, int standId,
                                       int demandeGardeeId, int adminId) {
-        String sql = "UPDATE demande_stand SET statut = 'REFUSEE', admin_id = ?, motif_refus = ? "
-                + "WHERE stand_id = ? AND id <> ? AND statut = 'EN_ATTENTE'";
+        String sql = "UPDATE demande_stand SET statut = 'REFUSEE', admin_id = ?, motif_refus = ?, "
+                + "date_traitement = NOW() WHERE stand_id = ? AND id <> ? AND statut = 'EN_ATTENTE'";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setInt(1, adminId);
             statement.setString(2, "Stand attribue a un autre exposant");
@@ -189,6 +189,20 @@ public class DemandeStandDAO {
             throw new DataAccessException("Erreur lors de la lecture des demandes", e);
         }
         return demandes;
+    }
+    public boolean existeEnAttente(Connection connection, int exposantId, int standId) {
+        String sql = "SELECT 1 FROM demande_stand "
+                + "WHERE exposant_id = ? AND stand_id = ? AND statut = 'EN_ATTENTE' LIMIT 1";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setInt(1, exposantId);
+            statement.setInt(2, standId);
+            try (ResultSet result = statement.executeQuery()) {
+                return result.next();
+            }
+        } catch (SQLException e) {
+            throw new DataAccessException(
+                    "Erreur lors de la verification des demandes du stand " + standId, e);
+        }
     }
 
     private DemandeStand mapRow(ResultSet result) throws SQLException {

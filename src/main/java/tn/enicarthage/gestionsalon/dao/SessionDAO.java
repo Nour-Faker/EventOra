@@ -72,6 +72,23 @@ public class SessionDAO {
         return null;
     }
 
+    // READ avec verrou : la ligne reste verrouillee jusqu'au commit/rollback.
+    // Utilise la Connection de l'appelant : ne PAS la fermer ici.
+    public Session findByIdForUpdate(Connection connection, int id) {
+        String sql = "SELECT * FROM session_evenement WHERE id = ? FOR UPDATE";
+
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setInt(1, id);
+
+            try (ResultSet result = statement.executeQuery()) {
+                return result.next() ? mapRow(result) : null;
+            }
+
+        } catch (SQLException e) {
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
+        }
+    }
+
     // READ : les sessions d'un evenement (le programme)
     public List<Session> findByEvenementId(int evenementId) {
         return findList("SELECT * FROM session_evenement WHERE evenement_id = ? "

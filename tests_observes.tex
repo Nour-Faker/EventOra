@@ -1,0 +1,34 @@
+A1 & Inscription visiteur valide & 201 & 201 \\ \hline
+A2 & Inscription exposant valide & 201 & 201 \\ \hline
+A3 & Email deja utilise & 400 ou 409 & 400 \\ \hline
+A4 & Inscription avec role ADMINISTRATEUR & 400 ou 403 & 400 \\ \hline
+A5 & Email invalide et mot de passe vide & 400 & 400 \\ \hline
+A6 & JSON mal forme & 400 & 400 \\ \hline
+A7 & Exposant sans nom d'entreprise (rollback) & 400 & 400 \\ \hline
+B1 & Identifiants corrects (visiteur) & 200 & 200 \\ \hline
+B2 & Mauvais mot de passe & 401 & 401 \\ \hline
+B3 & Email inconnu (meme message que B2) & 401 & 401 \\ \hline
+B4 & Compte bloque & 403 & 200 \\ \hline
+B5 & Corps de connexion vide & 400 & 401 \\ \hline
+C1 & Sans header Authorization & 401 & 401 \\ \hline
+C2 & Token invalide (abc123) & 401 & 401 \\ \hline
+C3 & Signature du token modifiee & 401 & 401 \\ \hline
+C4 & Token expire & 401 & manuel \\ \hline
+C5 & Authorization sans le mot Bearer & 401 & 401 \\ \hline
+D1 & Creation evenement (admin) & 201 & 201 \\ \hline
+E1 & Liste des evenements sans token & 200 & 200 \\ \hline
+E2 & Evenement existant & 200 & 200 \\ \hline
+D2 & Creation evenement (visiteur) & 403 & 403 \\ \hline
+D3 & Creation evenement (exposant) & 403 & 403 \\ \hline
+D4 & Modification evenement (admin) & 200 & 200 \\ \hline
+D5 & Modification evenement (visiteur) & 403 & 403 \\ \hline
+D8 & Visiteur + role ADMINISTRATEUR dans le body & 403 & 403 \\ \hline
+D7 & Suppression evenement (visiteur) & 403 & 403 \\ \hline
+D6 & Suppression evenement (admin) & 204 & 204 \\ \hline
+E3 & Evenement inexistant & 404 & 404 \\ \hline
+E4 & Identifiant non numerique & 400 & 400 \\ \hline
+E5 & date\_fin anterieure a date\_debut & 400 & 400 \\ \hline
+E6 & Methode non supportee (PATCH) & 400 ou 405 & 400 \\ \hline
+E7 & Route inconnue & 404 & 404 \\ \hline
+F1 & Preflight OPTIONS /events & 200 ou 204 & 204 \\ \hline
+F2 & Headers CORS presents sur une erreur 401 & 401 & 401 \\ \hline

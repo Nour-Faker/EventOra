@@ -1,87 +1,114 @@
 package tn.enicarthage.gestionsalon.service;
 
-import tn.enicarthage.gestionsalon.dao.CategorieDAO;
-import tn.enicarthage.gestionsalon.dao.EvenementDAO;
+import tn.enicarthage.gestionsalon.config.DatabaseConnection;
+import tn.enicarthage.gestionsalon.dao.DemandeStandDAO;
 import tn.enicarthage.gestionsalon.dao.StandDAO;
+import tn.enicarthage.gestionsalon.dao.StandVueDAO;
+import tn.enicarthage.gestionsalon.dao.StandVueDAO.DemandeVue;
+import tn.enicarthage.gestionsalon.dao.StandVueDAO.StandVue;
+import tn.enicarthage.gestionsalon.exception.ConflictException;
+import tn.enicarthage.gestionsalon.exception.DataAccessException;
 import tn.enicarthage.gestionsalon.exception.ResourceNotFoundException;
+import tn.enicarthage.gestionsalon.model.DemandeStand;
 import tn.enicarthage.gestionsalon.model.Stand;
+import tn.enicarthage.gestionsalon.model.StatutDemande;
 import tn.enicarthage.gestionsalon.model.StatutStand;
 
-import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.List;
 
 public class StandService {
 
-    private final StandDAO standDAO;
-    private final CategorieDAO categorieDAO;
-    private final EvenementDAO evenementDAO;
+    private final StandDAO standDAO = new StandDAO();
+    private final DemandeStandDAO demandeDAO = new DemandeStandDAO();
+    private final StandVueDAO vueDAO = new StandVueDAO();
 
-    public StandService() {
-        this.standDAO = new StandDAO();
-        this.categorieDAO = new CategorieDAO();
-        this.evenementDAO = new EvenementDAO();
-    }
+    public List<StandVue> stands(int evenementId) { return vueDAO.listerStands(evenementId); }
+    public List<DemandeVue> mesDemandes(int exposantId) { return vueDAO.demandesDeLExposant(exposantId); }
+    public List<DemandeVue> toutesLesDemandes() { return vueDAO.toutesLesDemandes(); }
 
-    public void createStand(Stand stand) {
-        validate(stand);
-        if (stand.getStatut() == null) {
-            stand.setStatut(StatutStand.LIBRE); // un nouveau stand est libre
-        }
-        standDAO.create(stand);
-    }
-
-    public List<Stand> getAllStands() {
-        return standDAO.findAll();
-    }
-
-    public List<Stand> getStandsByEvenement(int evenementId) {
-        return standDAO.findByEvenementId(evenementId);
-    }
-
-    public Stand getStandById(int id) {
-        Stand stand = standDAO.findById(id);
-        if (stand == null) {
-            throw new ResourceNotFoundException("Stand introuvable : " + id);
-        }
-        return stand;
-    }
-
-    public void updateStand(Stand stand) {
-        getStandById(stand.getId()); // verifie que le stand existe
-        validate(stand);
-        standDAO.update(stand);
-    }
-
-    public void deleteStand(int id) {
-        getStandById(id);
-        standDAO.delete(id);
-    }
-
-    private void validate(Stand stand) {
-        if (stand.getNumero() == null || stand.getNumero().isBlank()) {
-            throw new IllegalArgumentException("Le numero du stand est obligatoire.");
-        }
-        if (stand.getSuperficie() <= 0) {
-            throw new IllegalArgumentException("La superficie doit etre positive.");
-        }
-        if (stand.getPrix() == null || stand.getPrix().compareTo(BigDecimal.ZERO) < 0) {
-            throw new IllegalArgumentException("Le prix doit etre positif.");
-        }
-        if (evenementDAO.findById(stand.getEvenementId()) == null) {
-            throw new ResourceNotFoundException(
-                    "Evenement introuvable : " + stand.getEvenementId());
-        }
-        if (categorieDAO.findById(stand.getCategorieId()) == null) {
-            throw new ResourceNotFoundException(
-                    "Categorie introuvable : " + stand.getCategorieId());
-        }
-        // Un numero de stand est unique dans un evenement
-        for (Stand existant : standDAO.findByEvenementId(stand.getEvenementId())) {
-            if (existant.getNumero().equalsIgnoreCase(stand.getNumero())
-                    && existant.getId() != stand.getId()) {
-                throw new IllegalArgumentException(
-                        "Ce numero de stand existe deja pour cet evenement.");
+    public DemandeVue demander(int exposantId, int standId) {
+        int demandeId;
+        try (Connection c = DatabaseConnection.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                Stand stand = standDAO.findByIdForUpdate(c, standId); // verrou
+                if (stand == null) {
+                    throw new ResourceNotFoundException("Stand introuvable.");
+                }
+                if (stand.getStatut() == StatutStand.RESERVE) {
+                    throw new ConflictException("Ce stand est deja reserve.");
+                }
+                if (demandeDAO.existeEnAttente(c, exposantId, standId)) {
+                    throw new ConflictException("Vous avez deja une demande en attente pour ce stand.");
+                }
+                DemandeStand d = new DemandeStand();
+                d.setExposantId(exposantId);
+                d.setStandId(standId);
+                d.setStatut(StatutDemande.EN_ATTENTE);
+                demandeDAO.create(c, d);
+                if (stand.getStatut() == StatutStand.LIBRE) {
+                    standDAO.updateStatut(c, standId, StatutStand.EN_ATTENTE);
+                }
+                c.commit();
+                demandeId = d.getId();
+            } catch (RuntimeException e) {
+                c.rollback();
+                throw e;
             }
+        } catch (SQLException e) {
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
         }
+        return vueDAO.trouverDemande(demandeId);
+    }
+
+    public DemandeVue traiter(int adminId, int demandeId, String decision, String motif) {
+        if (!"VALIDEE".equals(decision) && !"REFUSEE".equals(decision)) {
+            throw new IllegalArgumentException("Decision invalide : VALIDEE ou REFUSEE.");
+        }
+        boolean valider = "VALIDEE".equals(decision);
+        if (!valider && (motif == null || motif.isBlank())) {
+            throw new IllegalArgumentException("Le motif du refus est obligatoire.");
+        }
+
+        DemandeStand demande = demandeDAO.findById(demandeId);
+        if (demande == null) {
+            throw new ResourceNotFoundException("Demande introuvable.");
+        }
+
+        try (Connection c = DatabaseConnection.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                // Meme ordre de verrouillage partout : le stand d'abord
+                Stand stand = standDAO.findByIdForUpdate(c, demande.getStandId());
+                if (stand == null) {
+                    throw new ResourceNotFoundException("Stand introuvable.");
+                }
+                demande.setAdminId(adminId);
+                demande.setStatut(valider ? StatutDemande.VALIDEE : StatutDemande.REFUSEE);
+                demande.setMotifRefus(valider ? null : motif.trim());
+
+                if (valider && stand.getStatut() == StatutStand.RESERVE) {
+                    throw new ConflictException("Ce stand est deja reserve.");
+                }
+                if (!demandeDAO.updateSiEnAttente(c, demande)) {
+                    throw new ConflictException("Cette demande a deja ete traitee.");
+                }
+                if (valider) {
+                    vueDAO.reserver(c, demande.getStandId(), demande.getExposantId());
+                    demandeDAO.refuserAutresEnAttente(c, demande.getStandId(), demandeId, adminId);
+                } else if (demandeDAO.countEnAttenteByStand(c, demande.getStandId()) == 0) {
+                    standDAO.updateStatutSiEnAttente(c, demande.getStandId(), StatutStand.LIBRE);
+                }
+                c.commit();
+            } catch (RuntimeException e) {
+                c.rollback();
+                throw e;
+            }
+        } catch (SQLException e) {
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
+        }
+        return vueDAO.trouverDemande(demandeId);
     }
 }
