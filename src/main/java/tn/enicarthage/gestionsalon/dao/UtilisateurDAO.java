@@ -126,6 +126,79 @@ public class UtilisateurDAO {
         return null;
     }
 
+    // READ : un utilisateur par son id, avec les champs propres a son role
+    public Utilisateur findById(int id) {
+        String sql = "SELECT u.*, e.nom_entreprise, e.logo_url, "
+                + "e.description AS exposant_description, a.matricule "
+                + "FROM utilisateur u "
+                + "LEFT JOIN exposant e ON e.id = u.id "
+                + "LEFT JOIN agent_accueil a ON a.id = u.id "
+                + "WHERE u.id = ?";
+
+        try (
+                Connection connection = DatabaseConnection.getConnection();
+                PreparedStatement statement = connection.prepareStatement(sql)
+        ) {
+            statement.setInt(1, id);
+
+            try (ResultSet result = statement.executeQuery()) {
+                if (result.next()) {
+                    return mapRow(result);
+                }
+            }
+
+        } catch (SQLException e) {
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
+        }
+
+        return null;
+    }
+
+    public boolean existsMatricule(String matricule) {
+        String sql = "SELECT 1 FROM agent_accueil WHERE matricule = ?";
+
+        try (
+                Connection connection = DatabaseConnection.getConnection();
+                PreparedStatement statement = connection.prepareStatement(sql)
+        ) {
+            statement.setString(1, matricule);
+
+            try (ResultSet result = statement.executeQuery()) {
+                return result.next();
+            }
+
+        } catch (SQLException e) {
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
+        }
+    }
+
+    // CREATE : un agent d'accueil = une ligne utilisateur ET une ligne agent_accueil (une transaction)
+    public void createAgent(AgentAccueil agent) {
+        try (Connection connection = DatabaseConnection.getConnection()) {
+            connection.setAutoCommit(false);
+
+            try {
+                insertUtilisateur(connection, agent);
+
+                String sql = "INSERT INTO agent_accueil (id, matricule) VALUES (?, ?)";
+                try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                    statement.setInt(1, agent.getId());
+                    statement.setString(2, agent.getMatricule());
+                    statement.executeUpdate();
+                }
+
+                connection.commit();
+
+            } catch (SQLException e) {
+                connection.rollback();
+                throw e;
+            }
+
+        } catch (SQLException e) {
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
+        }
+    }
+
     // UPDATE : bloquer ou debloquer un compte
     public void setBloque(int id, boolean bloque) {
         String sql = "UPDATE utilisateur SET est_bloque = ? WHERE id = ?";

@@ -31,6 +31,10 @@ public class AuthController {
         return reponse(u);
     }
 
+    public UtilisateurResponse profil(int userId) {
+        return new UtilisateurResponse(authService.profil(userId));
+    }
+
     private AuthResponse reponse(Utilisateur u) {
         String token = JwtUtil.creer(u.getId(), u.getRole().name());
         return new AuthResponse(token, new UtilisateurResponse(u));

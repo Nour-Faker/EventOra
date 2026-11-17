@@ -116,6 +116,46 @@ public class CategorieDAO {
         }
     }
 
+    // Le nom est UNIQUE en base : on le verifie avant pour renvoyer 409 et non 500.
+    // exceptId = id a ignorer lors d'une modification (0 pour une creation).
+    public boolean existeNom(String nom, int exceptId) {
+        String sql = "SELECT 1 FROM categorie WHERE nom = ? AND id <> ?";
+
+        try (
+                Connection connection = DatabaseConnection.getConnection();
+                PreparedStatement statement = connection.prepareStatement(sql)
+        ) {
+            statement.setString(1, nom);
+            statement.setInt(2, exceptId);
+
+            try (ResultSet result = statement.executeQuery()) {
+                return result.next();
+            }
+
+        } catch (SQLException e) {
+            throw new DataAccessException("Erreur lors de la verification du nom de categorie", e);
+        }
+    }
+
+    // Une categorie referencee par des stands ne peut pas etre supprimee (FK sans CASCADE)
+    public boolean estUtilisee(int id) {
+        String sql = "SELECT 1 FROM stand WHERE categorie_id = ? LIMIT 1";
+
+        try (
+                Connection connection = DatabaseConnection.getConnection();
+                PreparedStatement statement = connection.prepareStatement(sql)
+        ) {
+            statement.setInt(1, id);
+
+            try (ResultSet result = statement.executeQuery()) {
+                return result.next();
+            }
+
+        } catch (SQLException e) {
+            throw new DataAccessException("Erreur lors de la verification de la categorie " + id, e);
+        }
+    }
+
     // Convertit la ligne courante du ResultSet en objet Categorie
     private Categorie mapRow(ResultSet result) throws SQLException {
         Categorie categorie = new Categorie();
