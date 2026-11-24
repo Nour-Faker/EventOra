@@ -10,6 +10,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,7 +20,8 @@ public class BilletDAO {
     public record TypeBilletVue(int id, String nom, BigDecimal prix, int quota, int restants) {}
     public record BilletVue(int id, String codeQr, String statut, String typeBillet,
                             BigDecimal prixPaye, String titre, LocalDate dateDebut, String lieu) {}
-    public record ScanVue(int id, String statut, String visiteur, String titre) {}
+    public record ScanVue(int id, String statut, String visiteur, String titre,
+                          String typeBillet, LocalDateTime dateScan) {}
 
     private static final String SELECT_VUE =
             "SELECT b.id, b.code_qr, b.statut, t.nom AS type_billet, b.prix_paye, "
@@ -110,7 +112,8 @@ public class BilletDAO {
     }
 
     public ScanVue infoScan(String code) {
-        String sql = "SELECT b.id, b.statut, u.prenom, u.nom, e.titre FROM billet b "
+        String sql = "SELECT b.id, b.statut, u.prenom, u.nom, e.titre, t.nom AS type_billet, b.date_scan "
+                + "FROM billet b "
                 + "JOIN utilisateur u ON u.id = b.visiteur_id "
                 + "JOIN type_billet t ON t.id = b.type_billet_id "
                 + "JOIN evenement e ON e.id = t.evenement_id WHERE b.code_qr = ?";
@@ -120,7 +123,8 @@ public class BilletDAO {
             try (ResultSet r = s.executeQuery()) {
                 if (!r.next()) return null;
                 return new ScanVue(r.getInt("id"), r.getString("statut"),
-                        r.getString("prenom") + " " + r.getString("nom"), r.getString("titre"));
+                        r.getString("prenom") + " " + r.getString("nom"), r.getString("titre"),
+                        r.getString("type_billet"), r.getObject("date_scan", LocalDateTime.class));
             }
         } catch (SQLException e) {
             throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
@@ -233,6 +237,41 @@ public class BilletDAO {
         } catch (SQLException e) {
             throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
         }
+    }
+
+    // ---------- Regles inter-tables ----------
+
+    // Billet non annule du visiteur pour cet evenement (inscription a une session)
+    public boolean possedeBilletActif(int visiteurId, int evenementId) {
+        return compterSimple("SELECT COUNT(*) FROM billet b JOIN type_billet t ON t.id = b.type_billet_id "
+                + "WHERE b.visiteur_id = ? AND t.evenement_id = ? AND b.statut <> 'ANNULE'",
+                visiteurId, evenementId) > 0;
+    }
+
+    // Tous les billets d'un evenement, annules compris (suppression de l'evenement)
+    public int compterParEvenement(int evenementId) {
+        return compterSimple("SELECT COUNT(*) FROM billet b JOIN type_billet t ON t.id = b.type_billet_id "
+                + "WHERE t.evenement_id = ?", evenementId);
+    }
+
+    // Billet du visiteur uniquement (PDF) : null si le billet n'existe pas ou appartient a un autre
+    public BilletVue trouverVueDuVisiteur(int visiteurId, int billetId) {
+        List<BilletVue> liste = new ArrayList<>();
+        try (Connection c = DatabaseConnection.getConnection();
+             PreparedStatement s = c.prepareStatement(SELECT_VUE + "WHERE b.id = ? AND b.visiteur_id = ?")) {
+            s.setInt(1, billetId);
+            s.setInt(2, visiteurId);
+            try (ResultSet r = s.executeQuery()) {
+                while (r.next()) {
+                    liste.add(new BilletVue(r.getInt("id"), r.getString("code_qr"), r.getString("statut"),
+                            r.getString("type_billet"), r.getBigDecimal("prix_paye"), r.getString("titre"),
+                            r.getObject("date_debut", LocalDate.class), r.getString("lieu")));
+                }
+            }
+        } catch (SQLException e) {
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
+        }
+        return liste.isEmpty() ? null : liste.get(0);
     }
 
     // ---------- Utilitaires ----------

@@ -1,4 +1,4 @@
-package tn.enicarthage.gestionSalon.util;
+package tn.enicarthage.gestionsalon.util;
 
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;

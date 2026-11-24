@@ -1,11 +1,14 @@
-package tn.enicarthage.gestionSalon.service;
+package tn.enicarthage.gestionsalon.service;
 
-import tn.enicarthage.gestionSalon.dao.UtilisateurDAO;
-import tn.enicarthage.gestionSalon.exception.AuthenticationException;
-import tn.enicarthage.gestionSalon.model.Exposant;
-import tn.enicarthage.gestionSalon.model.Utilisateur;
-import tn.enicarthage.gestionSalon.model.Visiteur;
-import tn.enicarthage.gestionSalon.util.PasswordUtil;
+import tn.enicarthage.gestionsalon.dao.UtilisateurDAO;
+import tn.enicarthage.gestionsalon.exception.AuthenticationException;
+import tn.enicarthage.gestionsalon.exception.EmailNonVerifieException;
+import tn.enicarthage.gestionsalon.exception.ResourceNotFoundException;
+import tn.enicarthage.gestionsalon.model.AgentAccueil;
+import tn.enicarthage.gestionsalon.model.Exposant;
+import tn.enicarthage.gestionsalon.model.Utilisateur;
+import tn.enicarthage.gestionsalon.model.Visiteur;
+import tn.enicarthage.gestionsalon.util.PasswordUtil;
 
 public class AuthService {
 
@@ -51,6 +54,37 @@ public class AuthService {
         return exposant;
     }
 
+    public AgentAccueil creerAgent(String nom, String prenom, String email,
+                                   String motDePasse, String telephone, String matricule) {
+        String emailNormalise = validerInscription(nom, prenom, email, motDePasse);
+        if (matricule == null || matricule.isBlank()) {
+            throw new IllegalArgumentException("Le matricule est obligatoire.");
+        }
+        if (utilisateurDAO.existsMatricule(matricule.trim())) {
+            throw new IllegalArgumentException("Ce matricule existe deja.");
+        }
+
+        AgentAccueil agent = new AgentAccueil();
+        agent.setNom(nom.trim());
+        agent.setPrenom(prenom.trim());
+        agent.setEmail(emailNormalise);
+        agent.setMotDePasseHash(PasswordUtil.hash(motDePasse));
+        agent.setTelephone(telephone);
+        agent.setMatricule(matricule.trim());
+        agent.setEmailVerifie(true); // compte cree par l'administrateur
+        utilisateurDAO.createAgent(agent);
+        return agent;
+    }
+
+    // Profil d'un utilisateur connecte (l'identifiant vient du jeton)
+    public Utilisateur profil(int userId) {
+        Utilisateur utilisateur = utilisateurDAO.findById(userId);
+        if (utilisateur == null) {
+            throw new ResourceNotFoundException("Utilisateur introuvable : " + userId);
+        }
+        return utilisateur;
+    }
+
     public Utilisateur seConnecter(String email, String motDePasse) {
         String message = "Email ou mot de passe incorrect.";
 
@@ -65,6 +99,10 @@ public class AuthService {
         }
         if (utilisateur.isEstBloque()) {
             throw new AuthenticationException("Ce compte est bloque.");
+        }
+        if (EmailService.actif() && !utilisateur.isEmailVerifie()) {
+            throw new EmailNonVerifieException(
+                    "Adresse email non verifiee. Saisissez le code recu par email.");
         }
 
         return utilisateur;

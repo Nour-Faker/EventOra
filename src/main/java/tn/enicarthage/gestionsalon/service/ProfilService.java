@@ -1,19 +1,17 @@
 package tn.enicarthage.gestionsalon.service;
 
-import org.mindrot.jbcrypt.BCrypt;                       // ADAPTEZ : même lib de hash que AuthService
 import tn.enicarthage.gestionsalon.dao.UtilisateurDAO;
 import tn.enicarthage.gestionsalon.dto.ChangePasswordRequest;
 import tn.enicarthage.gestionsalon.dto.UpdateProfilRequest;
 import tn.enicarthage.gestionsalon.dto.UtilisateurResponse;
 import tn.enicarthage.gestionsalon.exception.ResourceNotFoundException;
 import tn.enicarthage.gestionsalon.model.Utilisateur;
+import tn.enicarthage.gestionsalon.util.PasswordUtil;
 
 /**
- * ADAPTEZ aux méthodes réelles de UtilisateurDAO :
- *   Utilisateur findById(int id)                       (null si absent)
- *   void updateIdentite(int id, String nom, String prenom)
- *   void updateMotDePasse(int id, String hash)
- * et à UtilisateurResponse (ici : UtilisateurResponse.from(Utilisateur)).
+ * Profil de l'utilisateur connecte : consultation, modification du nom et du prenom,
+ * changement de mot de passe. Le mot de passe est hache avec PasswordUtil (PBKDF2),
+ * comme a l'inscription et a la connexion.
  */
 public class ProfilService {
 
@@ -23,7 +21,7 @@ public class ProfilService {
     public ProfilService(UtilisateurDAO dao) { this.dao = dao; }
 
     public UtilisateurResponse getProfil(int userId) {
-        return UtilisateurResponse.from(load(userId));
+        return new UtilisateurResponse(load(userId));
     }
 
     public UtilisateurResponse updateProfil(int userId, UpdateProfilRequest req) {
@@ -42,10 +40,10 @@ public class ProfilService {
 
         Utilisateur u = load(userId);
         // 400 et non 401 : un 401 ferait déconnecter le front, la session est valide ici
-        if (!BCrypt.checkpw(req.ancienMotDePasse(), u.getMotDePasseHash()))   // ADAPTEZ : getter
+        if (!PasswordUtil.verify(req.ancienMotDePasse(), u.getMotDePasseHash()))
             throw new IllegalArgumentException("Ancien mot de passe incorrect");
 
-        dao.updateMotDePasse(userId, BCrypt.hashpw(req.nouveauMotDePasse(), BCrypt.gensalt(12)));
+        dao.updateMotDePasse(userId, PasswordUtil.hash(req.nouveauMotDePasse()));
     }
 
     private Utilisateur load(int id) {

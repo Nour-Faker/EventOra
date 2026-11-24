@@ -1,4 +1,4 @@
-package tn.enicarthage.gestionSalon.config;
+package tn.enicarthage.gestionsalon.config;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -14,7 +14,8 @@ public final class DatabaseConnection {
 
     private static final String HOST = "localhost";
     private static final int PORT = 3306;
-    private static final String DATABASE = "gestion_salon";
+    // DB_NAME permet de lancer les tests sur une base separee (defaut : gestion_salon)
+    private static final String DATABASE = System.getenv().getOrDefault("DB_NAME", "gestion_salon");
     private static final String USER = "root";
     private static final String PASSWORD = "";
     private static final String OPTIONS =

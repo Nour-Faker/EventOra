@@ -1,13 +1,15 @@
-package tn.enicarthage.gestionSalon.service;
+package tn.enicarthage.gestionsalon.service;
 
-import tn.enicarthage.gestionSalon.dao.EvenementDAO;
-import tn.enicarthage.gestionSalon.dao.InscriptionSessionDAO;
-import tn.enicarthage.gestionSalon.dao.SessionDAO;
-import tn.enicarthage.gestionSalon.dao.UtilisateurDAO;
-import tn.enicarthage.gestionSalon.exception.ResourceNotFoundException;
-import tn.enicarthage.gestionSalon.model.Evenement;
-import tn.enicarthage.gestionSalon.model.Role;
-import tn.enicarthage.gestionSalon.model.Session;
+import tn.enicarthage.gestionsalon.dao.BilletDAO;
+import tn.enicarthage.gestionsalon.dao.EvenementDAO;
+import tn.enicarthage.gestionsalon.dao.InscriptionSessionDAO;
+import tn.enicarthage.gestionsalon.dao.SessionDAO;
+import tn.enicarthage.gestionsalon.dao.UtilisateurDAO;
+import tn.enicarthage.gestionsalon.exception.ConflictException;
+import tn.enicarthage.gestionsalon.exception.ResourceNotFoundException;
+import tn.enicarthage.gestionsalon.model.Evenement;
+import tn.enicarthage.gestionsalon.model.Role;
+import tn.enicarthage.gestionsalon.model.Session;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -18,6 +20,7 @@ public class SessionService {
     private final InscriptionSessionDAO inscriptionDAO;
     private final EvenementDAO evenementDAO;
     private final UtilisateurDAO utilisateurDAO;
+    private final BilletDAO billetDAO = new BilletDAO();
 
     public SessionService() {
         this.sessionDAO = new SessionDAO();
@@ -48,6 +51,10 @@ public class SessionService {
     public void updateSession(Session session) {
         getSessionById(session.getId());
         validate(session);
+        if (session.getCapaciteMax() < inscriptionDAO.countBySession(session.getId())) {
+            throw new ConflictException(
+                    "La capacite ne peut pas etre inferieure au nombre d'inscrits.");
+        }
         sessionDAO.update(session);
     }
 
@@ -70,11 +77,16 @@ public class SessionService {
 
         Session session = getSessionById(sessionId);
 
+        // UC "S'inscrire a une session" : il faut un billet (non annule) pour l'evenement
+        if (!billetDAO.possedeBilletActif(visiteurId, session.getEvenementId())) {
+            throw new ConflictException(
+                    "Vous devez d'abord reserver un billet pour cet evenement.");
+        }
         if (inscriptionDAO.exists(visiteurId, sessionId)) {
-            throw new IllegalArgumentException("Ce visiteur est deja inscrit a cette session.");
+            throw new ConflictException("Ce visiteur est deja inscrit a cette session.");
         }
         if (inscriptionDAO.countBySession(sessionId) >= session.getCapaciteMax()) {
-            throw new IllegalArgumentException("Cette session est complete.");
+            throw new ConflictException("Cette session est complete.");
         }
 
         inscriptionDAO.add(visiteurId, sessionId);

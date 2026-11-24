@@ -216,6 +216,57 @@ public class UtilisateurDAO {
         }
     }
 
+    // UPDATE : modifier le nom et le prenom (profil)
+    public void updateIdentite(int id, String nom, String prenom) {
+        String sql = "UPDATE utilisateur SET nom = ?, prenom = ? WHERE id = ?";
+
+        try (
+                Connection connection = DatabaseConnection.getConnection();
+                PreparedStatement statement = connection.prepareStatement(sql)
+        ) {
+            statement.setString(1, nom);
+            statement.setString(2, prenom);
+            statement.setInt(3, id);
+            statement.executeUpdate();
+
+        } catch (SQLException e) {
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
+        }
+    }
+
+    // UPDATE : remplacer l'empreinte du mot de passe
+    public void updateMotDePasse(int id, String hash) {
+        String sql = "UPDATE utilisateur SET mot_de_passe_hash = ? WHERE id = ?";
+
+        try (
+                Connection connection = DatabaseConnection.getConnection();
+                PreparedStatement statement = connection.prepareStatement(sql)
+        ) {
+            statement.setString(1, hash);
+            statement.setInt(2, id);
+            statement.executeUpdate();
+
+        } catch (SQLException e) {
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
+        }
+    }
+
+    // UPDATE : l'adresse email a ete confirmee avec le code recu
+    public void marquerEmailVerifie(int id) {
+        String sql = "UPDATE utilisateur SET email_verifie = TRUE WHERE id = ?";
+
+        try (
+                Connection connection = DatabaseConnection.getConnection();
+                PreparedStatement statement = connection.prepareStatement(sql)
+        ) {
+            statement.setInt(1, id);
+            statement.executeUpdate();
+
+        } catch (SQLException e) {
+            throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
+        }
+    }
+
     // DELETE (supprime aussi la ligne exposant ou agent_accueil : ON DELETE CASCADE)
     public void delete(int id) {
         String sql = "DELETE FROM utilisateur WHERE id = ?";
@@ -236,8 +287,8 @@ public class UtilisateurDAO {
     private void insertUtilisateur(Connection connection, Utilisateur utilisateur)
             throws SQLException {
         String sql = "INSERT INTO utilisateur "
-                + "(nom, prenom, email, mot_de_passe_hash, telephone, role, est_bloque) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?)";
+                + "(nom, prenom, email, mot_de_passe_hash, telephone, role, est_bloque, email_verifie) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (PreparedStatement statement =
                      connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -248,6 +299,7 @@ public class UtilisateurDAO {
             statement.setString(5, utilisateur.getTelephone());
             statement.setString(6, utilisateur.getRole().name());
             statement.setBoolean(7, utilisateur.isEstBloque());
+            statement.setBoolean(8, utilisateur.isEmailVerifie());
             statement.executeUpdate();
 
             try (ResultSet keys = statement.getGeneratedKeys()) {
@@ -287,6 +339,7 @@ public class UtilisateurDAO {
         utilisateur.setTelephone(result.getString("telephone"));
         utilisateur.setRole(role);
         utilisateur.setEstBloque(result.getBoolean("est_bloque"));
+        utilisateur.setEmailVerifie(result.getBoolean("email_verifie"));
         return utilisateur;
     }
 }

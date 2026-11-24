@@ -35,9 +35,9 @@ public class SeedDev {
     private static int creerUtilisateur(Connection c, String nom, String prenom, String email,
                                         String role, String hash) throws Exception {
         try (PreparedStatement s = c.prepareStatement(
-                "INSERT INTO utilisateur (nom, prenom, email, mot_de_passe_hash, role) "
-                        + "VALUES (?, ?, ?, ?, ?) "
-                        + "ON DUPLICATE KEY UPDATE mot_de_passe_hash = VALUES(mot_de_passe_hash)")) {
+                "INSERT INTO utilisateur (nom, prenom, email, mot_de_passe_hash, role, email_verifie) "
+                        + "VALUES (?, ?, ?, ?, ?, TRUE) "
+                        + "ON DUPLICATE KEY UPDATE mot_de_passe_hash = VALUES(mot_de_passe_hash), email_verifie = TRUE")) {
             s.setString(1, nom);
             s.setString(2, prenom);
             s.setString(3, email);

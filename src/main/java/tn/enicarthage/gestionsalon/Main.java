@@ -13,11 +13,20 @@ public class Main {
             return;
         }
 
+        // PORT permet de changer le port (ex. 8081 si Oracle occupe deja le 8080)
+        int port;
         try {
-            ApiServer serveur = new ApiServer(8080);
+            port = Integer.parseInt(System.getenv().getOrDefault("PORT", "8080").trim());
+        } catch (NumberFormatException e) {
+            System.out.println("PORT invalide, utilisation de 8080.");
+            port = 8080;
+        }
+
+        try {
+            ApiServer serveur = new ApiServer(port);
             serveur.demarrer();
-            System.out.println("Serveur HTTP demarre sur http://localhost:8080");
-            System.out.println("Testez avec Postman : GET http://localhost:8080/events");
+            System.out.println("Serveur HTTP demarre sur http://localhost:" + port);
+            System.out.println("Testez avec Postman : GET http://localhost:" + port + "/events");
         } catch (IOException e) {
             System.out.println("Impossible de demarrer le serveur : " + e.getMessage());
         }

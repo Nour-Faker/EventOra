@@ -1,4 +1,4 @@
-package tn.enicarthage.gestionSalon.model;
+package tn.enicarthage.gestionsalon.model;
 
 public abstract class Utilisateur {
 
@@ -10,6 +10,7 @@ public abstract class Utilisateur {
     private String telephone;
     private Role role;
     private boolean estBloque;
+    private boolean emailVerifie;
 
     public Utilisateur() {
     }
@@ -52,4 +53,7 @@ public abstract class Utilisateur {
 
     public boolean isEstBloque() { return estBloque; }
     public void setEstBloque(boolean estBloque) { this.estBloque = estBloque; }
+
+    public boolean isEmailVerifie() { return emailVerifie; }
+    public void setEmailVerifie(boolean emailVerifie) { this.emailVerifie = emailVerifie; }
 }

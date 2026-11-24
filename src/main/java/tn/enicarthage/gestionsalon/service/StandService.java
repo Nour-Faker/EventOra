@@ -1,7 +1,9 @@
 package tn.enicarthage.gestionsalon.service;
 
 import tn.enicarthage.gestionsalon.config.DatabaseConnection;
+import tn.enicarthage.gestionsalon.dao.CategorieDAO;
 import tn.enicarthage.gestionsalon.dao.DemandeStandDAO;
+import tn.enicarthage.gestionsalon.dao.EvenementDAO;
 import tn.enicarthage.gestionsalon.dao.StandDAO;
 import tn.enicarthage.gestionsalon.dao.StandVueDAO;
 import tn.enicarthage.gestionsalon.dao.StandVueDAO.DemandeVue;
@@ -14,6 +16,7 @@ import tn.enicarthage.gestionsalon.model.Stand;
 import tn.enicarthage.gestionsalon.model.StatutDemande;
 import tn.enicarthage.gestionsalon.model.StatutStand;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
@@ -23,8 +26,18 @@ public class StandService {
     private final StandDAO standDAO = new StandDAO();
     private final DemandeStandDAO demandeDAO = new DemandeStandDAO();
     private final StandVueDAO vueDAO = new StandVueDAO();
+    private final EvenementDAO evenementDAO = new EvenementDAO();
+    private final CategorieDAO categorieDAO = new CategorieDAO();
 
     public List<StandVue> stands(int evenementId) { return vueDAO.listerStands(evenementId); }
+
+    public StandVue stand(int standId) {
+        StandVue vue = vueDAO.trouverStand(standId);
+        if (vue == null) {
+            throw new ResourceNotFoundException("Stand introuvable.");
+        }
+        return vue;
+    }
     public List<DemandeVue> mesDemandes(int exposantId) { return vueDAO.demandesDeLExposant(exposantId); }
     public List<DemandeVue> toutesLesDemandes() { return vueDAO.toutesLesDemandes(); }
 
@@ -110,5 +123,67 @@ public class StandService {
             throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
         }
         return vueDAO.trouverDemande(demandeId);
+    }
+
+    // ---------- Gestion des stands (administrateur) : BF-11 a BF-13 ----------
+
+    public StandVue creerStand(int evenementId, int categorieId, String numero,
+                               String emplacement, BigDecimal superficie, BigDecimal prix) {
+        if (evenementDAO.findById(evenementId) == null) {
+            throw new ResourceNotFoundException("Evenement introuvable.");
+        }
+        Stand stand = new Stand();
+        stand.setEvenementId(evenementId);
+        stand.setStatut(StatutStand.LIBRE);
+        remplir(stand, categorieId, numero, emplacement, superficie, prix);
+        standDAO.create(stand);
+        return vueDAO.trouverStand(stand.getId());
+    }
+
+    // L'evenement et le statut d'un stand ne changent pas ici (le statut suit les demandes)
+    public StandVue modifierStand(int standId, int categorieId, String numero,
+                                  String emplacement, BigDecimal superficie, BigDecimal prix) {
+        Stand stand = standDAO.findById(standId);
+        if (stand == null) {
+            throw new ResourceNotFoundException("Stand introuvable.");
+        }
+        remplir(stand, categorieId, numero, emplacement, superficie, prix);
+        standDAO.update(stand);
+        return vueDAO.trouverStand(standId);
+    }
+
+    public void supprimerStand(int standId) {
+        if (standDAO.findById(standId) == null) {
+            throw new ResourceNotFoundException("Stand introuvable.");
+        }
+        // Condition dans le WHERE : pas de fenetre entre la verification et la suppression
+        if (!standDAO.supprimerSiLibre(standId)) {
+            throw new ConflictException("Seul un stand libre peut etre supprime.");
+        }
+    }
+
+    private void remplir(Stand stand, int categorieId, String numero, String emplacement,
+                         BigDecimal superficie, BigDecimal prix) {
+        if (numero == null || numero.isBlank()) {
+            throw new IllegalArgumentException("Le numero du stand est obligatoire.");
+        }
+        if (superficie == null || superficie.signum() <= 0) {
+            throw new IllegalArgumentException("La superficie doit etre strictement positive.");
+        }
+        if (prix == null || prix.signum() < 0) {
+            throw new IllegalArgumentException("Le prix doit etre positif ou nul.");
+        }
+        if (categorieDAO.findById(categorieId) == null) {
+            throw new ResourceNotFoundException("Categorie introuvable.");
+        }
+        String numeroNormalise = numero.trim();
+        if (standDAO.existeNumero(stand.getEvenementId(), numeroNormalise, stand.getId())) {
+            throw new ConflictException("Ce numero de stand existe deja pour cet evenement.");
+        }
+        stand.setCategorieId(categorieId);
+        stand.setNumero(numeroNormalise);
+        stand.setEmplacement(emplacement);
+        stand.setSuperficie(superficie.doubleValue());
+        stand.setPrix(prix);
     }
 }

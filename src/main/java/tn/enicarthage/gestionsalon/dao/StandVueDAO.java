@@ -11,8 +11,18 @@ import java.util.List;
 
 public class StandVueDAO {
 
+    // Stand lisible par un ecran : noms de la categorie, de l'evenement et de l'exposant (si reserve)
     public record StandVue(int id, String numero, String emplacement, BigDecimal superficie,
-                           BigDecimal prix, String statut, String categorie) {}
+                           BigDecimal prix, String statut, int categorieId, String categorie,
+                           int evenementId, String evenement, String exposant) {}
+
+    private static final String SELECT_STAND =
+            "SELECT s.id, s.numero, s.emplacement, s.superficie, s.prix, s.statut, "
+                    + "c.id, c.nom, e.id, e.titre, ex.nom_entreprise "
+                    + "FROM stand s "
+                    + "JOIN categorie c ON c.id = s.categorie_id "
+                    + "JOIN evenement e ON e.id = s.evenement_id "
+                    + "LEFT JOIN exposant ex ON ex.id = s.exposant_id ";
 
     public record DemandeVue(int id, String stand, String evenement, String exposant,
                              String statut, String motifRefus, LocalDateTime dateDemande,
@@ -27,17 +37,14 @@ public class StandVueDAO {
                     + "JOIN exposant ex ON ex.id = d.exposant_id ";
 
     public List<StandVue> listerStands(int evenementId) {
-        String sql = "SELECT s.id, s.numero, s.emplacement, s.superficie, s.prix, s.statut, c.nom "
-                + "FROM stand s JOIN categorie c ON c.id = s.categorie_id "
-                + "WHERE s.evenement_id = ? ORDER BY s.numero";
+        String sql = SELECT_STAND + "WHERE s.evenement_id = ? ORDER BY s.numero";
         List<StandVue> liste = new ArrayList<>();
         try (Connection c = DatabaseConnection.getConnection();
              PreparedStatement s = c.prepareStatement(sql)) {
             s.setInt(1, evenementId);
             try (ResultSet r = s.executeQuery()) {
                 while (r.next()) {
-                    liste.add(new StandVue(r.getInt(1), r.getString(2), r.getString(3),
-                            r.getBigDecimal(4), r.getBigDecimal(5), r.getString(6), r.getString(7)));
+                    liste.add(lireStand(r));
                 }
             }
         } catch (SQLException e) {
@@ -47,19 +54,23 @@ public class StandVueDAO {
     }
 
     public StandVue trouverStand(int standId) {
-        String sql = "SELECT s.id, s.numero, s.emplacement, s.superficie, s.prix, s.statut, c.nom "
-                + "FROM stand s JOIN categorie c ON c.id = s.categorie_id WHERE s.id = ?";
+        String sql = SELECT_STAND + "WHERE s.id = ?";
         try (Connection c = DatabaseConnection.getConnection();
              PreparedStatement s = c.prepareStatement(sql)) {
             s.setInt(1, standId);
             try (ResultSet r = s.executeQuery()) {
                 if (!r.next()) return null;
-                return new StandVue(r.getInt(1), r.getString(2), r.getString(3),
-                        r.getBigDecimal(4), r.getBigDecimal(5), r.getString(6), r.getString(7));
+                return lireStand(r);
             }
         } catch (SQLException e) {
             throw new DataAccessException("Erreur SQL : " + e.getMessage(), e);
         }
+    }
+
+    private StandVue lireStand(ResultSet r) throws SQLException {
+        return new StandVue(r.getInt(1), r.getString(2), r.getString(3),
+                r.getBigDecimal(4), r.getBigDecimal(5), r.getString(6),
+                r.getInt(7), r.getString(8), r.getInt(9), r.getString(10), r.getString(11));
     }
 
     public List<DemandeVue> demandesDeLExposant(int exposantId) {

@@ -1,49 +1,26 @@
 package tn.enicarthage.gestionsalon.controller;
 
-import com.sun.net.httpserver.HttpExchange;
+import tn.enicarthage.gestionsalon.dao.UtilisateurDAO;
 import tn.enicarthage.gestionsalon.dto.ChangePasswordRequest;
 import tn.enicarthage.gestionsalon.dto.UpdateProfilRequest;
-import tn.enicarthage.gestionsalon.exception.ResourceNotFoundException;
+import tn.enicarthage.gestionsalon.dto.UtilisateurResponse;
 import tn.enicarthage.gestionsalon.service.ProfilService;
-import tn.enicarthage.gestionsalon.util.AuthUser;
-
-import java.util.Map;
 
 /**
- * GET /me             tout utilisateur connecté
- * PUT /me             idem
- * PUT /me/password    idem
- * L'id vient TOUJOURS du token : impossible de lire/modifier le profil d'un autre.
+ * GET /me, PUT /me, PUT /me/password : tout utilisateur connecte (BF-03, BF-04).
+ * L'identifiant vient TOUJOURS du jeton : impossible de lire ou modifier le profil d'un autre.
  */
-public class ProfilController extends BaseController {
+public class ProfilController {
 
-    private final ProfilService service;
+    private final ProfilService service = new ProfilService(new UtilisateurDAO());
 
-    public ProfilController(ProfilService service) { this.service = service; }
+    public UtilisateurResponse profil(int userId) { return service.getProfil(userId); }
 
-    @Override
-    protected void route(HttpExchange ex) throws Exception {
-        AuthUser u = requireAuth(ex);
-        String[] s = segments(ex);
-        String method = ex.getRequestMethod();
+    public UtilisateurResponse modifier(int userId, UpdateProfilRequest r) {
+        return service.updateProfil(userId, r);
+    }
 
-        if (s.length == 1) {                                      // /me
-            switch (method) {
-                case "GET" -> sendJson(ex, 200, service.getProfil(u.id()));
-                case "PUT" -> sendJson(ex, 200,
-                        service.updateProfil(u.id(), readBody(ex, UpdateProfilRequest.class)));
-                default -> methodNotAllowed(ex);
-            }
-            return;
-        }
-
-        if (s.length == 2 && "password".equals(s[1])) {           // /me/password
-            if (!"PUT".equals(method)) { methodNotAllowed(ex); return; }
-            service.changePassword(u.id(), readBody(ex, ChangePasswordRequest.class));
-            sendJson(ex, 200, Map.of("message", "Mot de passe modifié"));
-            return;
-        }
-
-        throw new ResourceNotFoundException("Route inconnue");
+    public void changerMotDePasse(int userId, ChangePasswordRequest r) {
+        service.changePassword(userId, r);
     }
 }

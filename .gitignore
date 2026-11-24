@@ -13,3 +13,5 @@ login.json
 # Misc
 cp.txt
 *.log
+# Local database dumps
+backups/

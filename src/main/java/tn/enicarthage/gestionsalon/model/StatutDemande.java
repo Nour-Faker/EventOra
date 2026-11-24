@@ -1,4 +1,4 @@
-package tn.enicarthage.gestionSalon.model;
+package tn.enicarthage.gestionsalon.model;
 
 public enum StatutDemande {
     EN_ATTENTE,

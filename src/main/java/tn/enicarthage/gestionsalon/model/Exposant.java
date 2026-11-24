@@ -1,4 +1,4 @@
-package tn.enicarthage.gestionSalon.model;
+package tn.enicarthage.gestionsalon.model;
 
 public class Exposant extends Utilisateur {
 

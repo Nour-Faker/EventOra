@@ -11,6 +11,7 @@ public class StandController {
     private final StandService service = new StandService();
 
     public List<StandVue> stands(int evenementId) { return service.stands(evenementId); }
+    public StandVue stand(int standId) { return service.stand(standId); }
     public List<DemandeVue> mesDemandes(int exposantId) { return service.mesDemandes(exposantId); }
     public List<DemandeVue> toutesLesDemandes() { return service.toutesLesDemandes(); }
     public StandVue creerStand(int evenementId, int categorieId, String numero,

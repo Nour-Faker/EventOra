@@ -1,4 +1,4 @@
-package tn.enicarthage.gestionSalon.exception;
+package tn.enicarthage.gestionsalon.exception;
 
 public class AuthenticationException extends RuntimeException {
 

@@ -24,4 +24,5 @@ public class BilletController {
     public BilletVue acheter(int visiteurId, int typeBilletId) { return service.acheter(visiteurId, typeBilletId); }
     public void annuler(int visiteurId, int billetId) { service.annuler(visiteurId, billetId); }
     public ScanVue scanner(int agentId, String code) { return service.scanner(agentId, code); }
+    public byte[] pdf(int visiteurId, int billetId) { return service.pdf(visiteurId, billetId); }
 }

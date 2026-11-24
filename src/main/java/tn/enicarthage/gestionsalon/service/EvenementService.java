@@ -1,14 +1,17 @@
-package tn.enicarthage.gestionSalon.service;
+package tn.enicarthage.gestionsalon.service;
 
-import tn.enicarthage.gestionSalon.dao.EvenementDAO;
-import tn.enicarthage.gestionSalon.exception.ResourceNotFoundException;
-import tn.enicarthage.gestionSalon.model.Evenement;
+import tn.enicarthage.gestionsalon.dao.BilletDAO;
+import tn.enicarthage.gestionsalon.dao.EvenementDAO;
+import tn.enicarthage.gestionsalon.exception.ConflictException;
+import tn.enicarthage.gestionsalon.exception.ResourceNotFoundException;
+import tn.enicarthage.gestionsalon.model.Evenement;
 
 import java.util.List;
 
 public class EvenementService {
 
     private final EvenementDAO evenementDAO;
+    private final BilletDAO billetDAO = new BilletDAO();
 
     public EvenementService() {
         this.evenementDAO = new EvenementDAO();
@@ -39,6 +42,10 @@ public class EvenementService {
 
     public void deleteEvenement(int id) {
         getEvenementById(id);
+        // billet -> type_billet est en RESTRICT : on renvoie un 409 clair au lieu d'une erreur SQL
+        if (billetDAO.compterParEvenement(id) > 0) {
+            throw new ConflictException("Des billets ont ete vendus pour cet evenement : suppression impossible.");
+        }
         evenementDAO.delete(id);
     }
 

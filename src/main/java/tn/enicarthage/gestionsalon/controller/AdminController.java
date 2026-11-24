@@ -20,7 +20,8 @@ public class AdminController {
     }
 
     public List<UtilisateurVue> utilisateurs() { return service.utilisateurs(); }
-    public Map<String, Integer> stats() { return service.stats(); }
+    public Map<String, Object> stats() { return service.stats(); }
+    public void supprimer(int adminId, int cibleId) { service.supprimer(adminId, cibleId); }
     public void bloquer(int adminId, int cibleId, boolean bloque) { service.bloquer(adminId, cibleId, bloque); }
     public boolean compteActif(int id) { return service.compteActif(id); }
 
